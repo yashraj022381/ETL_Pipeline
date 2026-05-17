@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: etl-pipeline
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py demo
