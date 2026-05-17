@@ -2,10 +2,10 @@ services:
   - type: web
     name: etl-pipeline
     runtime: python
-    pythonVersion: "3.11.0"
-    buildCommand: "pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
-    startCommand: "python app.py"
+    buildCommand: "pip install --upgrade pip setuptools==69.0.0 wheel && pip install -r requirements.txt"
+    startCommand: python app.py
     envVars:
-    - key: PYTHON_VERSION
-      value: 3.11.0
-    
+     - key: PYTHON_VERSION
+       value: 3.11.9
+     - key: PYTHONPATH
+       value: /opt/render/project/src
