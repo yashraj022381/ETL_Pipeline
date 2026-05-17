@@ -1,238 +1,172 @@
-"""
-=============================================================
-  SCHEDULERS / PIPELINE_SCHEDULER.PY  —  The Alarm Clock
-=============================================================
+# =============================================================
+#  SCHEDULERS/PIPELINE_SCHEDULER.PY
+#  
+#  CELERY = A task queue system
+#
+#  Think of it like a RESTAURANT:
+#    - You (the boss) write orders on tickets  → tasks
+#    - The kitchen (workers) pick up tickets   → celery workers  
+#    - The ticket board                        → Redis
+#    - The timer that creates orders           → Celery Beat
+# =============================================================
 
-WHAT IS SCHEDULING?
-  Real ETL pipelines don't run once manually.
-  They run AUTOMATICALLY on a schedule:
-    - "Run every night at 2 AM"
-    - "Run every Monday at 6 AM"
-    - "Run every 15 minutes"
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-  This is like setting an alarm clock for your pipeline.
-
-  WHY NOT DO THIS MANUALLY?
-    - Humans forget
-    - Humans sleep (pipelines shouldn't)
-    - Consistent timing = consistent data freshness
-
-WHAT TOOLS DO WE USE?
-  schedule  : a simple Python library (like a basic alarm clock)
-  Celery    : a professional task queue with Redis as the message board
-              (used by companies like Instagram and Pinterest)
-
-HOW CELERY WORKS:
-  1. You add a task to the queue (like leaving a sticky note)
-  2. A "worker" process picks it up and runs it
-  3. Results are stored back in Redis
-  This lets you run tasks in parallel across many machines!
-=============================================================
-"""
-
-import time
-import threading
-from datetime import datetime
-from typing import Callable, Optional
-import schedule
+from celery import Celery
+from celery.schedules import crontab
 from loguru import logger
 
+# ── CREATE THE CELERY APP ─────────────────────────────────────
+# broker  = where tasks are SENT     (Redis is the message board)
+# backend = where RESULTS are stored (Redis stores the answers)
 
-# ── SIMPLE SCHEDULER (no external dependencies) ──────────
-class PipelineScheduler:
+celery_app = Celery(
+    "etl_pipeline",                    # name of our app
+    broker="redis://localhost:6379/0", # send tasks here
+    backend="redis://localhost:6379/0" # store results here
+)
+
+# ── SETTINGS ─────────────────────────────────────────────────
+celery_app.conf.update(
+    task_serializer="json",      # tasks travel as JSON text
+    result_serializer="json",    # results stored as JSON
+    timezone="Asia/Kolkata",     # YOUR timezone IST
+    enable_utc=False,
+    task_track_started=True,     # show "STARTED" status
+    task_acks_late=True,         # only mark done AFTER success
+)
+
+# ── SCHEDULED TASKS (like cron jobs) ─────────────────────────
+# This is Celery Beat — the alarm clock that creates tasks
+# crontab(hour=2, minute=0) = run at 2:00 AM every day
+
+celery_app.conf.beat_schedule = {
+
+    # Run demo pipeline every day at 2 AM
+    "daily-demo-pipeline": {
+        "task": "schedulers.pipeline_scheduler.run_demo_task",
+        "schedule": crontab(hour=2, minute=0),
+        "options": {"queue": "pipeline"}
+    },
+
+    # Run every 5 minutes (for testing)
+    "every-5-minutes": {
+        "task": "schedulers.pipeline_scheduler.run_demo_task",
+        "schedule": crontab(minute="*/5"),
+        "options": {"queue": "pipeline"}
+    },
+}
+
+# ── DEFINE TASKS ─────────────────────────────────────────────
+# @celery_app.task turns a normal function into a Celery task
+# bind=True  gives us "self" so we can retry on failure
+# max_retries=3 means try 3 times before giving up
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=30,    # wait 30 seconds between retries
+    name="schedulers.pipeline_scheduler.run_demo_task",
+    queue="pipeline",
+)
+def run_demo_task(self):
     """
-    A simple scheduler using the `schedule` library.
+    CELERY TASK: Run the demo pipeline.
+    
+    This function runs in a SEPARATE WORKER PROCESS.
+    Like a kitchen worker picking up an order ticket.
+    """
+    try:
+        logger.info(f"Celery task started | ID: {self.request.id}")
+        
+        from pipeline import ETLPipeline
+        pipeline = ETLPipeline(f"celery_run_{self.request.id[:8]}")
+        result = pipeline.run(source="demo", target_table="celery_employees")
+        
+        logger.info(f"Celery task complete: {result}")
+        return result   # stored in Redis for retrieval
 
-    Perfect for single-machine deployments.
-    Think of it as the alarm clock on your bedside table.
+    except Exception as exc:
+        logger.error(f"Task failed: {exc}")
+        # retry() waits 30s then tries again, up to 3 times
+        raise self.retry(exc=exc)
+
+
+@celery_app.task(
+    bind=True,
+    name="schedulers.pipeline_scheduler.run_csv_task",
+    queue="pipeline",
+)
+def run_csv_task(self):
+    """CELERY TASK: Run the CSV pipeline."""
+    try:
+        from pipeline import ETLPipeline
+        pipeline = ETLPipeline("celery_csv")
+        result = pipeline.run(source="csv", target_table="celery_csv_data")
+        return result
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+# ── SIMPLE SCHEDULER (no Redis needed) ───────────────────────
+# Use this for testing without Redis
+
+import schedule
+import time
+import threading
+from typing import Callable, Optional
+
+class SimpleScheduler:
+    """
+    Basic scheduler using the 'schedule' library.
+    No Redis needed — perfect for learning and testing.
     """
 
     def __init__(self):
-        self._jobs = []
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
-    def add_job(
-        self,
-        func: Callable,
-        schedule_type: str = "daily",
-        at_time: str = "02:00",
-        every_minutes: Optional[int] = None,
-        job_name: str = "unnamed_job",
-    ) -> "PipelineScheduler":
-        """
-        Register a function to run on a schedule.
-
-        schedule_type options:
-          "daily"    — run once per day at `at_time`
-          "hourly"   — run every hour
-          "minutes"  — run every `every_minutes` minutes
-          "monday"   — run every Monday (also tuesday, wednesday, etc.)
-
-        Examples:
-            scheduler.add_job(run_sales_pipeline, "daily", "03:00")
-            scheduler.add_job(sync_users, "minutes", every_minutes=15)
-        """
-        # Wrap the function to add logging and error handling
+    def add_daily_job(self, func: Callable, at_time: str, name: str):
+        """Run a function every day at a specific time."""
         def safe_run():
-            logger.info(f"⏰ Scheduled job starting: '{job_name}'")
-            start = time.time()
+            logger.info(f"⏰ Running scheduled job: {name}")
             try:
                 func()
-                duration = round(time.time() - start, 2)
-                logger.info(f"✅ Job '{job_name}' completed in {duration}s")
+                logger.info(f"✅ Job '{name}' complete")
             except Exception as e:
-                logger.error(f"❌ Job '{job_name}' failed: {e}", exc_info=True)
+                logger.error(f"❌ Job '{name}' failed: {e}")
 
-        # Register with the schedule library
-        if schedule_type == "daily":
-            job = schedule.every().day.at(at_time).do(safe_run)
-        elif schedule_type == "hourly":
-            job = schedule.every().hour.do(safe_run)
-        elif schedule_type == "minutes" and every_minutes:
-            job = schedule.every(every_minutes).minutes.do(safe_run)
-        elif schedule_type in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"):
-            job = getattr(schedule.every(), schedule_type).at(at_time).do(safe_run)
-        else:
-            raise ValueError(f"Unknown schedule_type: {schedule_type}")
+        schedule.every().day.at(at_time).do(safe_run)
+        logger.info(f"Scheduled: '{name}' runs daily at {at_time}")
 
-        self._jobs.append({"name": job_name, "type": schedule_type, "job": job})
-        logger.info(f"Registered job '{job_name}' — schedule: {schedule_type} {at_time or ''}")
-        return self
-
-    def run_now(self, func: Callable, job_name: str = "manual_run"):
-        """
-        Run a pipeline immediately (without waiting for the schedule).
-        Useful for testing or manual triggers.
-        """
-        logger.info(f"🚀 Manual trigger: '{job_name}'")
-        try:
-            func()
-            logger.info(f"✅ Manual run '{job_name}' complete")
-        except Exception as e:
-            logger.error(f"❌ Manual run '{job_name}' failed: {e}")
-            raise
-
-    def start(self, blocking: bool = True):
-        """
-        Start the scheduler loop.
-
-        blocking=True  : the program stops here and just runs schedules forever
-                         (good for a dedicated scheduler service)
-        blocking=False : runs in a background thread
-                         (good when you also want to do other things)
-        """
-        self._running = True
-        logger.info(f"Scheduler started. {len(self._jobs)} jobs registered.")
-        self._print_schedule()
-
-        def _loop():
-            while self._running:
-                schedule.run_pending()   # check: is any job due to run?
-                time.sleep(1)            # check every second
-
-        if blocking:
+    def add_interval_job(self, func: Callable, minutes: int, name: str):
+        """Run a function every N minutes."""
+        def safe_run():
+            logger.info(f"⏰ Interval job: {name}")
             try:
-                _loop()
-            except KeyboardInterrupt:
-                logger.info("Scheduler stopped by user (Ctrl+C)")
-        else:
-            self._thread = threading.Thread(target=_loop, daemon=True)
-            self._thread.start()
-            logger.info("Scheduler running in background thread")
+                func()
+            except Exception as e:
+                logger.error(f"❌ {name} failed: {e}")
+
+        schedule.every(minutes).minutes.do(safe_run)
+        logger.info(f"Scheduled: '{name}' runs every {minutes} minutes")
+
+    def start_background(self):
+        """Run scheduler in background thread — doesn't block your program."""
+        self._running = True
+
+        def loop():
+            while self._running:
+                schedule.run_pending()  # check: is any job due?
+                time.sleep(1)           # check every second
+
+        self._thread = threading.Thread(target=loop, daemon=True)
+        self._thread.start()
+        logger.info("Scheduler running in background")
 
     def stop(self):
-        """Stop the scheduler gracefully."""
         self._running = False
         schedule.clear()
-        logger.info("Scheduler stopped. All jobs cleared.")
-
-    def _print_schedule(self):
-        """Print a summary of all registered jobs."""
-        logger.info("── SCHEDULED JOBS ──────────────────")
-        for j in self._jobs:
-            logger.info(f"  • {j['name']} [{j['type']}]")
-        logger.info("────────────────────────────────────")
-
-
-# ── CELERY TASK QUEUE (production-grade) ─────────────────
-# This section sets up Celery — the industrial-strength
-# task queue used in production environments.
-#
-# Think of Celery as a post office:
-#   - You drop off a letter (task) at the post office (queue)
-#   - A postal worker (worker) picks it up and delivers it
-#   - You can drop off many letters; they're all processed in parallel
-#
-# NOTE: Celery requires Redis to be running.
-#       For the demo we skip the actual import to avoid errors
-#       if Redis isn't installed.
-
-try:
-    from celery import Celery
-    from celery.schedules import crontab
-    from config.settings import Config
-
-    # Create the Celery application
-    celery_app = Celery(
-        "etl_pipeline",
-        broker=Config.redis.url,    # where tasks are sent (Redis)
-        backend=Config.redis.url,   # where results are stored (Redis)
-    )
-
-    # Configure Celery
-    celery_app.conf.update(
-        task_serializer="json",
-        accept_content=["json"],
-        result_serializer="json",
-        timezone="UTC",
-        enable_utc=True,
-        task_track_started=True,
-        task_acks_late=True,    # only mark as done AFTER success (important for reliability)
-        worker_prefetch_multiplier=1,  # one task at a time per worker (fair scheduling)
-    )
-
-    # ── BEAT SCHEDULE (Celery's cron) ──────────────────────
-    # This is Celery Beat — the part that triggers tasks on a schedule,
-    # like a cron job but more powerful.
-    celery_app.conf.beat_schedule = {
-        "daily-sales-etl": {
-            "task": "schedulers.pipeline_scheduler.run_sales_pipeline",
-            "schedule": crontab(hour=2, minute=0),   # 2:00 AM daily
-        },
-        "hourly-metrics": {
-            "task": "schedulers.pipeline_scheduler.run_metrics_pipeline",
-            "schedule": crontab(minute=0),            # top of every hour
-        },
-    }
-
-    # ── CELERY TASKS ───────────────────────────────────────
-    @celery_app.task(
-        bind=True,
-        max_retries=3,
-        default_retry_delay=60,   # wait 60s between retries
-        name="schedulers.pipeline_scheduler.run_sales_pipeline",
-    )
-    def run_sales_pipeline_task(self):
-        """
-        A Celery task for the sales pipeline.
-
-        `bind=True` means `self` is the task instance — we can
-        call `self.retry()` to retry after a failure.
-        """
-        try:
-            logger.info("Celery task: run_sales_pipeline started")
-            # Import here to avoid circular imports
-            from pipeline import ETLPipeline
-            pipeline = ETLPipeline("celery_sales_run")
-            pipeline.run()
-        except Exception as exc:
-            logger.error(f"Celery task failed: {exc}")
-            raise self.retry(exc=exc)
-
-    CELERY_AVAILABLE = True
-    logger.debug("Celery configured successfully")
-
-except ImportError:
-    CELERY_AVAILABLE = False
-    logger.debug("Celery not available — using simple scheduler only")
+        logger.info("Scheduler stopped")
