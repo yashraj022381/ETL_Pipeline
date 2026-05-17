@@ -3,4 +3,8 @@ services:
     name: etl-pipeline
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py demo
+    startCommand: python app.py
+    envVars:
+    - key: PYTHON_VERSION
+      value: 3.11.0
+    
