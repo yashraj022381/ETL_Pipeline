@@ -103,6 +103,11 @@ hr{border-color:#1a1a1a;margin:22px 0}
     🔄 <strong>Celery Task Queue</strong> — Tasks queued and processed
     asynchronously. Production: Redis broker + workers.
     Free tier: in-process simulation with Task IDs.
+  <div id="loading" style="display:none;padding:15px;margin:10px 0;
+     border:2px solid #ffaa00;color:#ffaa00;font-size:1em;
+     text-align:center;animation:pulse 1s infinite;">
+    ⏳ Pipeline Running... Please scroll down for results
+  </div>
   </div>
   <div class="btns">
     <button class="btn" id="b1" onclick="go('/run','b1','▶ Run Demo Pipeline')">
@@ -151,78 +156,97 @@ function lock(v){
 
 // Run Demo Pipeline
 async function runPipeline(){
+    // Show loading banner at top
+    var loading = document.getElementById('loading');
+    if(loading) loading.style.display='block';
+
     lock(true);
-    var btn=document.getElementById('b1');
-    btn.textContent='⏳ Running...';
-    show(
-        '⏳ Running ETL Pipeline...\n\n'+
-        '   Stage 1: EXTRACT   → collecting 300 rows...\n'+
-        '   Stage 2: TRANSFORM → cleaning data...\n'+
-        '   Stage 3: VALIDATE  → checking quality...\n'+
-        '   Stage 4: LOAD      → saving to SQLite...\n\n'+
-        '⚠️  Free tier takes 30-60 seconds on first run.\n'+
-        '   Please do not click again — working...',
-        '#ffaa00'
-    );
+    var btn = document.getElementById('b1');
+    btn.textContent = '⏳ Running...';
+
+    // Show result immediately so user knows it's working
+    var res = document.getElementById('res');
+    res.style.display = 'block';
+    res.style.color = '#ffaa00';
+    res.innerHTML =
+        '⏳ ETL Pipeline is running...\n\n' +
+        '   ▶ Stage 1: EXTRACT   → collecting data\n' +
+        '   ▶ Stage 2: TRANSFORM → cleaning data\n' +
+        '   ▶ Stage 3: VALIDATE  → checking quality\n' +
+        '   ▶ Stage 4: LOAD      → saving to database\n\n' +
+        '⚠️  Please scroll down to see results!\n' +
+        '   Free tier takes 10-60 seconds...';
+
+    // Scroll to result immediately
+    res.scrollIntoView({behavior:'smooth', block:'center'});
+
     try{
-        // Long timeout for free tier wakeup
-        var controller=new AbortController();
-        var timer=setTimeout(function(){controller.abort();},120000);
-        var response=await fetch('/run',{signal:controller.signal});
+        var controller = new AbortController();
+        var timer = setTimeout(function(){
+            controller.abort();
+        }, 120000);
+
+        var response = await fetch('/run', {signal: controller.signal});
         clearTimeout(timer);
-        var d=await response.json();
-        if(d.status==='success'){
-            document.getElementById('ec').textContent=d.failed||'0';
-            show(
-                '✅ Pipeline Complete!\n\n'+
-                '━━━━━━ PIPELINE RESULTS ━━━━━━\n\n'+
-                '📥 EXTRACT\n'+
-                '   Rows Extracted     : '+(d.extracted||'N/A')+'\n'+
-                '   Stage Duration     : '+(d.extract_time||'N/A')+'\n\n'+
-                '🔧 TRANSFORM\n'+
-                '   Rows Cleaned       : '+(d.transformed||'N/A')+'\n'+
-                '   Duplicates Removed : '+(d.dupes_removed||'0')+'\n'+
-                '   Nulls Fixed        : '+(d.nulls_fixed||'0')+'\n'+
-                '   Columns Added      : '+(d.columns_added||'3')+'\n'+
-                '   Stage Duration     : '+(d.transform_time||'N/A')+'\n\n'+
-                '✅ VALIDATE\n'+
-                '   Rules Checked      : 5\n'+
-                '   Errors Found       : 0\n'+
-                '   Stage Duration     : '+(d.validate_time||'N/A')+'\n\n'+
-                '💾 LOAD\n'+
-                '   Rows Saved         : '+(d.loaded||'N/A')+'\n'+
-                '   Rows Failed        : '+(d.failed||'0')+'\n'+
-                '   DB Total Rows      : '+(d.db_total_rows||d.total||'N/A')+'\n'+
-                '   Stage Duration     : '+(d.load_time||'N/A')+'\n\n'+
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+
-                '⏱  Total Duration     : '+(d.total_duration||d.duration||'N/A')+'\n'+
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+
-                '✅ Data saved to SQLite → emp table',
-                '#00ff88'
-            );
-        }else{
-            show('❌ Server Error:\n\n'+
-                 (d.message||JSON.stringify(d)),
-                 '#ff4444');
+        var d = await response.json();
+
+        if(loading) loading.style.display='none';
+
+        if(d.status === 'success'){
+            document.getElementById('ec').textContent = d.failed || '0';
+            res.style.color = '#00ff88';
+            res.innerHTML =
+                '✅ Pipeline Complete!\n\n' +
+                '━━━━━━ PIPELINE RESULTS ━━━━━━\n\n' +
+                '📥 EXTRACT\n' +
+                '   Rows Extracted     : ' + (d.extracted||'N/A') + '\n' +
+                '   Duration           : ' + (d.extract_time||'N/A') + '\n\n' +
+                '🔧 TRANSFORM\n' +
+                '   Rows Cleaned       : ' + (d.transformed||'N/A') + '\n' +
+                '   Duplicates Removed : ' + (d.dupes_removed||'0') + '\n' +
+                '   Nulls Fixed        : ' + (d.nulls_fixed||'0') + '\n' +
+                '   Columns Added      : ' + (d.columns_added||'3') + '\n' +
+                '   Duration           : ' + (d.transform_time||'N/A') + '\n\n' +
+                '✅ VALIDATE\n' +
+                '   Rules Checked      : 5\n' +
+                '   Errors Found       : 0\n' +
+                '   Duration           : ' + (d.validate_time||'N/A') + '\n\n' +
+                '💾 LOAD\n' +
+                '   Rows Saved         : ' + (d.loaded||'N/A') + '\n' +
+                '   Rows Failed        : ' + (d.failed||'0') + '\n' +
+                '   DB Total Rows      : ' + (d.db_total_rows||d.total||'N/A') + '\n' +
+                '   Duration           : ' + (d.load_time||'N/A') + '\n\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+                '⏱  Total Duration     : ' + (d.total_duration||d.duration||'N/A') + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+                '✅ Saved to SQLite → emp table';
+
+            // Scroll to show completed result
+            res.scrollIntoView({behavior:'smooth', block:'start'});
+
+        } else {
+            if(loading) loading.style.display='none';
+            res.style.color = '#ff4444';
+            res.innerHTML = '❌ Error:\n\n' + (d.message || JSON.stringify(d));
         }
-    }catch(e){
-        if(e.name==='AbortError'){
-            show(
-                '⏱ Request timed out (120s)\n\n'+
-                'The free Render server went to sleep.\n'+
-                'This is normal — try clicking again!\n'+
-                'Second attempt is always faster.',
-                '#ff4444'
-            );
-        }else{
-            show('❌ Network Error:\n\n'+e.message+
-                 '\n\nCheck your internet connection\nor try again.',
-                 '#ff4444');
+
+    } catch(e) {
+        if(loading) loading.style.display='none';
+        if(e.name === 'AbortError'){
+            res.style.color = '#ff4444';
+            res.innerHTML =
+                '⏱ Timed out after 120 seconds\n\n' +
+                'The free Render server went to sleep.\n' +
+                'Click the button again — second try is faster!';
+        } else {
+            res.style.color = '#ff4444';
+            res.innerHTML = '❌ ' + e.message;
         }
     }
     lock(false);
-    btn.textContent='▶ Run Demo Pipeline';
+    btn.textContent = '▶ Run Demo Pipeline';
 }
+
 
 // Queue Celery Task
 async function runCelery(){
