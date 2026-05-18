@@ -30,315 +30,142 @@ def do_etl(name="run"):
 
 @app.route("/")
 def home():
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>ETL Pipeline — Yashraj Jagdale</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{
-            background:#0d0d0d;color:#00ff88;
-            font-family:'Courier New',monospace;min-height:100vh;
-        }
-        header{
-            border-bottom:1px solid #00ff88;
-            padding:20px 40px;display:flex;
-            justify-content:space-between;align-items:center;
-        }
-        .logo{font-size:1.5em;font-weight:bold}
-        .live{display:flex;align-items:center;gap:8px;color:#888}
-        .dot{
-            width:10px;height:10px;background:#00ff88;
-            border-radius:50%;animation:pulse 2s infinite;
-        }
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-        .main{padding:40px;max-width:950px;margin:0 auto}
-        h1{font-size:3em;margin-bottom:8px}
-        .sub{color:#888;margin-bottom:20px}
-        .tag{
-            display:inline-block;padding:4px 12px;
-            border:1px solid;font-size:0.8em;margin:3px;
-        }
-        .t1{border-color:#3776ab;color:#3776ab}
-        .t2{border-color:#e70488;color:#e70488}
-        .t3{border-color:#ff9900;color:#ff9900}
-        .t4{border-color:#00aaff;color:#00aaff}
-        .t5{border-color:#00ff88;color:#00ff88}
-        hr{border-color:#1a1a1a;margin:25px 0}
-        .stats{
-            display:grid;grid-template-columns:repeat(4,1fr);
-            gap:15px;margin:25px 0;
-        }
-        .card{border:1px solid #00ff88;padding:20px;text-align:center}
-        .num{font-size:2.5em}
-        .lbl{color:#888;font-size:0.75em;margin-top:5px}
-        .flow{
-            display:flex;justify-content:center;
-            align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0;
-        }
-        .stage{border:1px solid #00ff88;padding:10px 18px;font-size:0.9em}
-        .arr{font-size:1.3em}
-        .celery-box{
-            border:1px solid #ff9900;padding:15px;
-            color:#ff9900;font-size:0.85em;margin:20px 0;
-        }
-        .btns{margin:20px 0;display:flex;flex-wrap:wrap;gap:10px}
-        .btn{
-            background:transparent;color:#00ff88;
-            border:2px solid #00ff88;
-            padding:14px 22px;font-size:0.9em;
-            cursor:pointer;font-family:monospace;
-            transition:all 0.3s;flex:1;min-width:160px;
-        }
-        .btn:hover{background:#00ff88;color:#000}
-        .btn:disabled{opacity:0.4;cursor:not-allowed}
-        .btn-c{border-color:#ff9900;color:#ff9900}
-        .btn-c:hover{background:#ff9900;color:#000}
-        .result{
-            margin-top:20px;padding:20px;
-            border:1px solid #333;background:#111;
-            display:none;white-space:pre-wrap;
-            line-height:2;font-size:0.9em;
-        }
-        .hbox{
-            margin-top:20px;border:1px solid #333;
-            padding:20px;display:none;
-        }
-        .hrow{
-            display:flex;justify-content:space-between;
-            padding:8px 0;border-bottom:1px solid #1a1a1a;
-            font-size:0.85em;
-        }
-        @media(max-width:600px){
-            .stats{grid-template-columns:repeat(2,1fr)}
-            h1{font-size:2em}
-        }
-    </style>
-</head>
-<body>
+    return """<!DOCTYPE html><html><head><title>ETL Pipeline</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d0d;color:#00ff88;font-family:'Courier New',monospace;min-height:100vh}
+header{border-bottom:1px solid #00ff88;padding:20px 40px;display:flex;justify-content:space-between}
+.logo{font-size:1.4em;font-weight:bold}
+.live{display:flex;align-items:center;gap:8px;color:#888}
+.dot{width:10px;height:10px;background:#00ff88;border-radius:50%;animation:p 2s infinite}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+.main{padding:30px;max-width:900px;margin:0 auto}
+h1{font-size:2.8em;margin-bottom:8px}
+.sub{color:#888;margin-bottom:18px}
+.tag{display:inline-block;padding:3px 10px;border:1px solid;font-size:.78em;margin:3px}
+.t1{border-color:#3776ab;color:#3776ab}
+.t2{border-color:#e70488;color:#e70488}
+.t3{border-color:#ff9900;color:#ff9900}
+.t4{border-color:#00aaff;color:#00aaff}
+.t5{border-color:#00ff88;color:#00ff88}
+hr{border-color:#1a1a1a;margin:22px 0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+.card{border:1px solid #00ff88;padding:18px;text-align:center}
+.num{font-size:2.3em}.lbl{color:#888;font-size:.73em;margin-top:4px}
+.flow{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin:18px 0}
+.s{border:1px solid #00ff88;padding:9px 16px;font-size:.88em}
+.arr{font-size:1.2em}
+.cbox{border:1px solid #ff9900;padding:14px;color:#ff9900;font-size:.83em;margin:18px 0}
+.btns{margin:18px 0;display:flex;flex-wrap:wrap;gap:9px}
+.btn{background:transparent;color:#00ff88;border:2px solid #00ff88;padding:13px 20px;
+     font-size:.88em;cursor:pointer;font-family:monospace;transition:all .3s;flex:1;min-width:140px}
+.btn:hover{background:#00ff88;color:#000}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.bc{border-color:#ff9900;color:#ff9900}
+.bc:hover{background:#ff9900;color:#000}
+.res{margin-top:18px;padding:18px;border:1px solid #333;background:#111;
+     display:none;white-space:pre-wrap;line-height:2;font-size:.88em}
+.hbox{margin-top:18px;border:1px solid #333;padding:18px;display:none}
+.hr2{display:flex;justify-content:space-between;padding:7px 0;
+     border-bottom:1px solid #1a1a1a;font-size:.83em}
+@media(max-width:600px){.grid{grid-template-columns:repeat(2,1fr)}h1{font-size:2em}}
+</style></head><body>
 <header>
-    <div class="logo">⚡ ETL_Pipeline</div>
-    <div class="live"><div class="dot"></div>Live on Render</div>
+  <div class="logo">⚡ ETL_Pipeline</div>
+  <div class="live"><div class="dot"></div>Live on Render</div>
 </header>
 <div class="main">
-    <h1>⚡ ETL Pipeline</h1>
-    <p class="sub">Advanced Data Engineering Project by Yashraj Jagdale</p>
-    <div>
-        <span class="tag t1">Python 3.11</span>
-        <span class="tag t2">Pandas</span>
-        <span class="tag t3">Celery</span>
-        <span class="tag t4">SQLite</span>
-        <span class="tag t5">Flask</span>
-    </div>
-    <hr>
-    <div class="stats">
-        <div class="card">
-            <div class="num">3</div>
-            <div class="lbl">ETL STAGES</div>
-        </div>
-        <div class="card">
-            <div class="num">3K+</div>
-            <div class="lbl">ROWS/RUN</div>
-        </div>
-        <div class="card">
-            <div class="num">4</div>
-            <div class="lbl">VALIDATORS</div>
-        </div>
-        <div class="card">
-            <div class="num" id="ecnt">0</div>
-            <div class="lbl">ERRORS</div>
-        </div>
-    </div>
-    <div class="flow">
-        <div class="stage">📥 EXTRACT</div>
-        <div class="arr">→</div>
-        <div class="stage">🔧 TRANSFORM</div>
-        <div class="arr">→</div>
-        <div class="stage">✅ VALIDATE</div>
-        <div class="arr">→</div>
-        <div class="stage">💾 LOAD</div>
-    </div>
-    <hr>
-    <div class="celery-box">
-        🔄 <strong>Celery Task Queue</strong> — Tasks queued and
-        processed asynchronously. Production: Redis broker + workers.
-        Free tier: in-process simulation with Task IDs.
-    </div>
-    <div class="btns">
-        <button class="btn" id="b1" onclick="runPipeline()">
-            ▶ Run Demo Pipeline
-        </button>
-        <button class="btn btn-c" id="b2" onclick="runCelery()">
-            🔄 Queue Celery Task
-        </button>
-        <button class="btn" id="b3" onclick="getStatus()">
-            📊 System Status
-        </button>
-        <button class="btn" id="b4" onclick="getHistory()">
-            📋 Task History
-        </button>
-    </div>
-    <div class="result" id="result"></div>
-    <div class="hbox" id="hbox">
-        <h3 style="margin-bottom:15px;color:#ff9900">
-            📋 Celery Task History
-        </h3>
-        <div id="hrows"></div>
-    </div>
+  <h1>⚡ ETL Pipeline</h1>
+  <p class="sub">Advanced Data Engineering Project by Yashraj Jagdale</p>
+  <div>
+    <span class="tag t1">Python 3.11</span>
+    <span class="tag t2">Pandas</span>
+    <span class="tag t3">Celery</span>
+    <span class="tag t4">SQLite</span>
+    <span class="tag t5">Flask</span>
+  </div>
+  <hr>
+  <div class="grid">
+    <div class="card"><div class="num">3</div><div class="lbl">ETL STAGES</div></div>
+    <div class="card"><div class="num">3K+</div><div class="lbl">ROWS/RUN</div></div>
+    <div class="card"><div class="num">4</div><div class="lbl">VALIDATORS</div></div>
+    <div class="card"><div class="num" id="ec">0</div><div class="lbl">ERRORS</div></div>
+  </div>
+  <div class="flow">
+    <div class="s">📥 EXTRACT</div><div class="arr">→</div>
+    <div class="s">🔧 TRANSFORM</div><div class="arr">→</div>
+    <div class="s">✅ VALIDATE</div><div class="arr">→</div>
+    <div class="s">💾 LOAD</div>
+  </div>
+  <hr>
+  <div class="cbox">
+    🔄 <strong>Celery Task Queue</strong> — Tasks queued and processed
+    asynchronously. Production: Redis broker + workers.
+    Free tier: in-process simulation with Task IDs.
+  </div>
+  <div class="btns">
+    <button class="btn" id="b1" onclick="go('/run','b1','▶ Run Demo Pipeline')">▶ Run Demo Pipeline</button>
+    <button class="btn bc" id="b2" onclick="cel()">🔄 Queue Celery Task</button>
+    <button class="btn" id="b3" onclick="go('/status','b3','📊 System Status')">📊 System Status</button>
+    <button class="btn" id="b4" onclick="hist()">📋 Task History</button>
+  </div>
+  <div class="res" id="res"></div>
+  <div class="hbox" id="hb">
+    <h3 style="margin-bottom:12px;color:#ff9900">📋 Celery Task History</h3>
+    <div id="hr"></div>
+  </div>
 </div>
-
 <script>
-function show(html, color) {
-    var r = document.getElementById('result');
-    r.style.display = 'block';
-    r.style.color = color || '#00ff88';
-    r.innerHTML = html;
+function show(h,c){var r=document.getElementById('res');r.style.display='block';r.style.color=c||'#00ff88';r.innerHTML=h}
+function lock(v){['b1','b2','b3','b4'].forEach(function(i){document.getElementById(i).disabled=v})}
+async function go(url,bid,orig){
+  lock(true);document.getElementById(bid).textContent='⏳ Loading...';
+  show('⏳ Please wait (free tier may take 30-50s)...','#ffaa00');
+  try{
+    var r=await fetch(url);var d=await r.json();
+    if(d.status==='success'||d.status==='Online ✅'){
+      var t='';
+      for(var k in d) t+=(k+'                ').slice(0,18)+': '+d[k]+'\\n';
+      show('✅ Success!\\n\\n━━━━━━━━━━━━━━━━━━━━\\n'+t+'━━━━━━━━━━━━━━━━━━━━','#00ff88');
+    }else{show('❌ '+JSON.stringify(d),'#ff4444')}
+  }catch(e){show('❌ '+e.message,'#ff4444')}
+  lock(false);document.getElementById(bid).textContent=orig;
 }
-function lock(on) {
-    ['b1','b2','b3','b4'].forEach(function(id){
-        document.getElementById(id).disabled = on;
-    });
+async function cel(){
+  lock(true);document.getElementById('b2').textContent='⏳ Queuing...';
+  show('🔄 Sending to Celery queue...','#ff9900');
+  try{
+    var r=await fetch('/celery/run');var d=await r.json();
+    show('🔄 Celery Task Done!\\n\\n━━━━━━━━━━━━━━━━━━━━\\n'+
+      'Task ID  : '+d.task_id+'\\n'+
+      'Status   : '+d.status+'\\n'+
+      'Result   : '+d.result+'\\n'+
+      'Queued At: '+d.queued_at+'\\n'+
+      '━━━━━━━━━━━━━━━━━━━━\\n\\n'+
+      'Production: celery -A schedulers worker\\n'+
+      '            celery -A schedulers beat','#ff9900');
+  }catch(e){show('❌ '+e.message,'#ff4444')}
+  lock(false);document.getElementById('b2').textContent='🔄 Queue Celery Task';
 }
-
-async function safeFetch(url, timeoutMs) {
-    timeoutMs = timeoutMs || 90000;
-    var ctrl = new AbortController();
-    var t = setTimeout(function(){ctrl.abort();}, timeoutMs);
-    try {
-        var r = await fetch(url, {signal: ctrl.signal});
-        clearTimeout(t);
-        return await r.json();
-    } catch(e) {
-        clearTimeout(t);
-        if (e.name === 'AbortError') {
-            throw new Error(
-                'Request timed out after ' + (timeoutMs/1000) + 's\\n' +
-                'Free tier may be waking up. Wait 30s and retry.'
-            );
-        }
-        throw e;
-    }
+async function hist(){
+  lock(true);document.getElementById('b4').textContent='⏳ Loading...';
+  try{
+    var r=await fetch('/celery/history');var d=await r.json();
+    document.getElementById('hb').style.display='block';
+    document.getElementById('hr').innerHTML=
+      !d.tasks||d.tasks.length===0
+      ?'<div style="color:#888;padding:10px">No tasks yet. Run pipeline first!</div>'
+      :d.tasks.map(function(t){
+        return '<div class="hr2">'+
+          '<span style="color:#ff9900">'+(t.task||'').split('.').pop()+'</span>'+
+          '<span style="color:#888">'+(t.timestamp||'').substring(11,19)+'</span>'+
+          '<span style="color:#00ff88">'+t.status+'</span></div>';
+      }).join('');
+  }catch(e){show('❌ '+e.message,'#ff4444')}
+  lock(false);document.getElementById('b4').textContent='📋 Task History';
 }
-
-async function runPipeline() {
-    lock(true);
-    document.getElementById('b1').textContent = '⏳ Running...';
-    show(
-        '⏳ Running ETL Pipeline...\\n' +
-        'Extract → Transform → Validate → Load\\n\\n' +
-        '⚠️  Free tier may take 30-50 seconds\\n' +
-        'Please wait...',
-        '#ffaa00'
-    );
-    try {
-        var d = await safeFetch('/run', 90000);
-        if (d.status === 'success') {
-            document.getElementById('ecnt').textContent = d.failed || '0';
-            show(
-                '✅ Pipeline Complete!\\n\\n' +
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
-                '📥 Rows Extracted   : ' + d.extracted   + '\\n' +
-                '🔧 Rows Transformed : ' + d.transformed + '\\n' +
-                '💾 Rows Loaded      : ' + d.loaded      + '\\n' +
-                '❌ Rows Failed      : ' + d.failed      + '\\n' +
-                '⏱  Duration         : ' + d.duration    + '\\n' +
-                '🗄  DB Total Rows    : ' + (d.db_total||'N/A') + '\\n' +
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
-                '✅ Saved to SQLite → employees table',
-                '#00ff88'
-            );
-        } else {
-            show('❌ Error:\\n\\n' + d.message, '#ff4444');
-        }
-    } catch(e) {
-        show('❌ ' + e.message, '#ff4444');
-    }
-    lock(false);
-    document.getElementById('b1').textContent = '▶ Run Demo Pipeline';
-}
-
-async function runCelery() {
-    lock(true);
-    document.getElementById('b2').textContent = '⏳ Queuing...';
-    show('🔄 Sending to Celery queue...\\nGenerating Task ID...', '#ff9900');
-    try {
-        var d = await safeFetch('/celery/run', 90000);
-        show(
-            '🔄 Celery Task Complete!\\n\\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
-            '📋 Task ID    : ' + d.task_id   + '\\n' +
-            '📌 Task Name  : run_demo_task\\n' +
-            '⏰ Queued At  : ' + d.queued_at + '\\n' +
-            '✅ Status     : ' + d.status    + '\\n' +
-            '📊 Result     : ' + d.result    + '\\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n' +
-            '💡 Production Celery setup:\\n' +
-            '   celery -A schedulers worker --loglevel=info\\n' +
-            '   celery -A schedulers beat   --loglevel=info\\n' +
-            '   (Requires Redis as message broker)',
-            '#ff9900'
-        );
-    } catch(e) {
-        show('❌ ' + e.message, '#ff4444');
-    }
-    lock(false);
-    document.getElementById('b2').textContent = '🔄 Queue Celery Task';
-}
-
-async function getStatus() {
-    lock(true);
-    document.getElementById('b3').textContent = '⏳ Loading...';
-    show('⏳ Fetching system status...', '#00aaff');
-    try {
-        var d = await safeFetch('/status', 30000);
-        var txt = '📊 SYSTEM STATUS\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
-        for (var k in d) {
-            txt += (k+'                ').slice(0,20) + ': ' + d[k] + '\\n';
-        }
-        txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-        show(txt, '#00aaff');
-    } catch(e) {
-        show('❌ ' + e.message, '#ff4444');
-    }
-    lock(false);
-    document.getElementById('b3').textContent = '📊 System Status';
-}
-
-async function getHistory() {
-    lock(true);
-    document.getElementById('b4').textContent = '⏳ Loading...';
-    try {
-        var d = await safeFetch('/celery/history', 15000);
-        var hbox = document.getElementById('hbox');
-        var hrows = document.getElementById('hrows');
-        hbox.style.display = 'block';
-        if (!d.tasks || d.tasks.length === 0) {
-            hrows.innerHTML =
-                '<div style="color:#888;padding:10px">' +
-                'No tasks yet.<br>Run the pipeline first!' +
-                '</div>';
-        } else {
-            hrows.innerHTML = d.tasks.map(function(t) {
-                var n = t.task.split('.').pop();
-                var ts = (t.timestamp||'').substring(11,19);
-                return '<div class="hrow">' +
-                    '<span style="color:#ff9900">' + n + '</span>' +
-                    '<span style="color:#888">'    + ts + '</span>' +
-                    '<span style="color:#00ff88">' + t.status + '</span>' +
-                    '</div>';
-            }).join('');
-        }
-    } catch(e) {
-        show('❌ ' + e.message, '#ff4444');
-    }
-    lock(false);
-    document.getElementById('b4').textContent = '📋 Task History';
-}
-</script>
-</body>
-</html>
+</script></body></html>
 """
 
 @app.route("/run")
