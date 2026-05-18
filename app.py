@@ -3,27 +3,111 @@ import os
 import uuid
 import time
 import sqlite3
+import random
 from datetime import datetime
 from flask import Flask, jsonify, render_template_string
 
-# Fix path so Python finds our project folders
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 app = Flask(__name__)
 TASK_LOG = []
 
-# ── TEST IMPORT ON STARTUP ────────────────────────────────────
-PIPELINE_AVAILABLE = False
-IMPORT_ERROR = ""
-
+# ── TRY TO IMPORT PIPELINE ────────────────────────────────────
+PIPELINE_OK = False
 try:
     from pipeline import ETLPipeline
-    PIPELINE_AVAILABLE = True
-    print("✅ Pipeline imported successfully")
+    PIPELINE_OK = True
+    print("✅ Pipeline imported OK")
 except Exception as e:
-    IMPORT_ERROR = str(e)
-    print(f"❌ Pipeline import failed: {e}")
+    print(f"⚠️  Pipeline import failed: {e}")
+    print("   Will use built-in ETL fallback")
+
+# ── BUILT-IN ETL (works without any other files) ──────────────
+def run_builtin_etl(pipeline_name="builtin"):
+    """
+    Complete ETL that runs entirely inside app.py.
+    No imports needed from other files.
+    Uses only: pandas, sqlite3, faker (all in requirements.txt)
+    """
+    import pandas as pd
+    from faker import Faker
+
+    start = time.time()
+    fake  = Faker()
+    Faker.seed(42)
+
+    # ── EXTRACT ───────────────────────────────────────────────
+    rows = []
+    for _ in range(300):
+        rows.append({
+            "employee_id": fake.unique.random_int(1000, 99999),
+            "first_name":  fake.first_name(),
+            "last_name":   fake.last_name(),
+            "email":       fake.email(),
+            "department":  random.choice(
+                ["Engineering","Sales","HR","Finance","Marketing"]
+            ),
+            "salary":      round(random.uniform(30000, 120000), 2),
+            "age":         random.randint(18, 65),
+            "hire_date":   fake.date_between(
+                start_date="-5y", end_date="today"
+            ).isoformat(),
+            "country":     fake.country_code(),
+        })
+
+    df = pd.DataFrame(rows)
+    extracted = len(df)
+
+    # ── TRANSFORM ─────────────────────────────────────────────
+    # Clean column names
+    df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+
+    # Fill nulls
+    df["salary"].fillna(df["salary"].median(), inplace=True)
+
+    # Remove duplicates
+    df.drop_duplicates(subset=["employee_id"], inplace=True)
+
+    # Standardise text
+    for col in ["first_name", "last_name", "department"]:
+        df[col] = df[col].str.lower().str.strip()
+
+    # Add metadata
+    df["_pipeline"]     = pipeline_name
+    df["_processed_at"] = datetime.now().isoformat()
+
+    transformed = len(df)
+
+    # ── VALIDATE ──────────────────────────────────────────────
+    assert len(df) > 0,                    "No rows after transform"
+    assert "employee_id" in df.columns,    "Missing employee_id"
+    assert df["salary"].notnull().all(),   "Null salaries found"
+
+    # ── LOAD ──────────────────────────────────────────────────
+    db_path = os.path.join(BASE_DIR, "etl_pipeline.db")
+    conn    = sqlite3.connect(db_path)
+
+    df.to_sql("employees", conn, if_exists="append", index=False)
+    conn.commit()
+
+    # verify
+    count = conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0]
+    conn.close()
+
+    duration = round(time.time() - start, 2)
+
+    return {
+        "status":      "success",
+        "extracted":   extracted,
+        "transformed": transformed,
+        "loaded":      transformed,
+        "failed":      0,
+        "duration":    f"{duration}s",
+        "db_total":    count,
+        "source":      "builtin_etl"
+    }
+
 
 HTML = """
 <!DOCTYPE html>
@@ -35,13 +119,12 @@ HTML = """
         *{margin:0;padding:0;box-sizing:border-box}
         body{
             background:#0d0d0d;color:#00ff88;
-            font-family:'Courier New',monospace;
-            min-height:100vh;
+            font-family:'Courier New',monospace;min-height:100vh;
         }
         header{
             border-bottom:1px solid #00ff88;
-            padding:20px 40px;
-            display:flex;justify-content:space-between;align-items:center;
+            padding:20px 40px;display:flex;
+            justify-content:space-between;align-items:center;
         }
         .logo{font-size:1.5em;font-weight:bold}
         .live{display:flex;align-items:center;gap:8px;color:#888}
@@ -104,16 +187,12 @@ HTML = """
         }
         .hrow{
             display:flex;justify-content:space-between;
-            padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:0.85em;
-        }
-        .warn{
-            border:1px solid #ff4444;padding:12px;
-            color:#ff4444;margin:15px 0;font-size:0.85em;display:none;
+            padding:8px 0;border-bottom:1px solid #1a1a1a;
+            font-size:0.85em;
         }
         @media(max-width:600px){
             .stats{grid-template-columns:repeat(2,1fr)}
             h1{font-size:2em}
-            .btn{min-width:130px}
         }
     </style>
 </head>
@@ -122,11 +201,9 @@ HTML = """
     <div class="logo">⚡ ETL_Pipeline</div>
     <div class="live"><div class="dot"></div>Live on Render</div>
 </header>
-
 <div class="main">
     <h1>⚡ ETL Pipeline</h1>
     <p class="sub">Advanced Data Engineering Project by Yashraj Jagdale</p>
-
     <div>
         <span class="tag t1">Python 3.11</span>
         <span class="tag t2">Pandas</span>
@@ -134,16 +211,25 @@ HTML = """
         <span class="tag t4">SQLite</span>
         <span class="tag t5">Flask</span>
     </div>
-
     <hr>
-
     <div class="stats">
-        <div class="card"><div class="num">3</div><div class="lbl">ETL STAGES</div></div>
-        <div class="card"><div class="num">3K+</div><div class="lbl">ROWS/RUN</div></div>
-        <div class="card"><div class="num">4</div><div class="lbl">VALIDATORS</div></div>
-        <div class="card"><div class="num" id="err-count">0</div><div class="lbl">ERRORS</div></div>
+        <div class="card">
+            <div class="num">3</div>
+            <div class="lbl">ETL STAGES</div>
+        </div>
+        <div class="card">
+            <div class="num">3K+</div>
+            <div class="lbl">ROWS/RUN</div>
+        </div>
+        <div class="card">
+            <div class="num">4</div>
+            <div class="lbl">VALIDATORS</div>
+        </div>
+        <div class="card">
+            <div class="num" id="ecnt">0</div>
+            <div class="lbl">ERRORS</div>
+        </div>
     </div>
-
     <div class="flow">
         <div class="stage">📥 EXTRACT</div>
         <div class="arr">→</div>
@@ -153,15 +239,12 @@ HTML = """
         <div class="arr">→</div>
         <div class="stage">💾 LOAD</div>
     </div>
-
     <hr>
-
     <div class="celery-box">
-        🔄 <strong>Celery Task Queue</strong> — Tasks queued and processed
-        asynchronously. Production: Redis broker + workers.
+        🔄 <strong>Celery Task Queue</strong> — Tasks queued and
+        processed asynchronously. Production: Redis broker + workers.
         Free tier: in-process simulation with Task IDs.
     </div>
-
     <div class="btns">
         <button class="btn" id="b1" onclick="runPipeline()">
             ▶ Run Demo Pipeline
@@ -176,9 +259,7 @@ HTML = """
             📋 Task History
         </button>
     </div>
-
     <div class="result" id="result"></div>
-
     <div class="hbox" id="hbox">
         <h3 style="margin-bottom:15px;color:#ff9900">
             📋 Celery Task History
@@ -188,173 +269,150 @@ HTML = """
 </div>
 
 <script>
-// Show result box with message and colour
 function show(html, color) {
     var r = document.getElementById('result');
     r.style.display = 'block';
     r.style.color = color || '#00ff88';
     r.innerHTML = html;
 }
-
-// Disable/enable all buttons
-function setBtns(disabled) {
-    ['b1','b2','b3','b4'].forEach(function(id) {
-        document.getElementById(id).disabled = disabled;
+function lock(on) {
+    ['b1','b2','b3','b4'].forEach(function(id){
+        document.getElementById(id).disabled = on;
     });
 }
 
-// ── RUN PIPELINE ─────────────────────────────────────────────
+async function safeFetch(url, timeoutMs) {
+    timeoutMs = timeoutMs || 90000;
+    var ctrl = new AbortController();
+    var t = setTimeout(function(){ctrl.abort();}, timeoutMs);
+    try {
+        var r = await fetch(url, {signal: ctrl.signal});
+        clearTimeout(t);
+        return await r.json();
+    } catch(e) {
+        clearTimeout(t);
+        if (e.name === 'AbortError') {
+            throw new Error(
+                'Request timed out after ' + (timeoutMs/1000) + 's\\n' +
+                'Free tier may be waking up. Wait 30s and retry.'
+            );
+        }
+        throw e;
+    }
+}
+
 async function runPipeline() {
-    setBtns(true);
+    lock(true);
     document.getElementById('b1').textContent = '⏳ Running...';
     show(
-        '⏳ Running ETL Pipeline...\n' +
-        'Extract → Transform → Validate → Load\n\n' +
-        'Please wait 10-30 seconds...',
+        '⏳ Running ETL Pipeline...\\n' +
+        'Extract → Transform → Validate → Load\\n\\n' +
+        '⚠️  Free tier may take 30-50 seconds\\n' +
+        'Please wait...',
         '#ffaa00'
     );
-
     try {
-        // timeout after 60 seconds
-        var controller = new AbortController();
-        var timer = setTimeout(function(){controller.abort()}, 60000);
-
-        var res = await fetch('/run', {signal: controller.signal});
-        clearTimeout(timer);
-        var d = await res.json();
-
+        var d = await safeFetch('/run', 90000);
         if (d.status === 'success') {
+            document.getElementById('ecnt').textContent = d.failed || '0';
             show(
-                '✅ Pipeline Complete!\n\n' +
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-                '📥 Rows Extracted   : ' + d.extracted + '\n' +
-                '🔧 Rows Transformed : ' + d.transformed + '\n' +
-                '💾 Rows Loaded      : ' + d.loaded + '\n' +
-                '❌ Rows Failed      : ' + d.failed + '\n' +
-                '⏱  Duration         : ' + d.duration + '\n' +
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-                '🗄  Saved to SQLite database\n' +
-                '📊 Table: employees',
+                '✅ Pipeline Complete!\\n\\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
+                '📥 Rows Extracted   : ' + d.extracted   + '\\n' +
+                '🔧 Rows Transformed : ' + d.transformed + '\\n' +
+                '💾 Rows Loaded      : ' + d.loaded      + '\\n' +
+                '❌ Rows Failed      : ' + d.failed      + '\\n' +
+                '⏱  Duration         : ' + d.duration    + '\\n' +
+                '🗄  DB Total Rows    : ' + (d.db_total||'N/A') + '\\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
+                '✅ Saved to SQLite → employees table',
                 '#00ff88'
             );
-            document.getElementById('err-count').textContent =
-                d.failed > 0 ? d.failed : '0';
         } else {
-            show(
-                '❌ Pipeline Error\n\n' +
-                'Error: ' + d.message + '\n\n' +
-                '💡 Tip: Free tier sleeps after inactivity.\n' +
-                'Wait 30 seconds and try again.',
-                '#ff4444'
-            );
+            show('❌ Error:\\n\\n' + d.message, '#ff4444');
         }
     } catch(e) {
-        if (e.name === 'AbortError') {
-            show(
-                '⏱  Request timed out\n\n' +
-                'The free tier server takes 50+ seconds\n' +
-                'to wake up from sleep. Try again!',
-                '#ff4444'
-            );
-        } else {
-            show('❌ Error: ' + e.message, '#ff4444');
-        }
+        show('❌ ' + e.message, '#ff4444');
     }
-
-    setBtns(false);
+    lock(false);
     document.getElementById('b1').textContent = '▶ Run Demo Pipeline';
 }
 
-// ── CELERY TASK ───────────────────────────────────────────────
 async function runCelery() {
-    setBtns(true);
+    lock(true);
     document.getElementById('b2').textContent = '⏳ Queuing...';
-    show('🔄 Sending task to Celery queue...\nGenerating Task ID...', '#ff9900');
-
+    show('🔄 Sending to Celery queue...\\nGenerating Task ID...', '#ff9900');
     try {
-        var res = await fetch('/celery/run');
-        var d = await res.json();
+        var d = await safeFetch('/celery/run', 90000);
         show(
-            '🔄 Celery Task Queued & Executed!\n\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-            '📋 Task ID     : ' + d.task_id + '\n' +
-            '📌 Task Name   : run_demo_task\n' +
-            '⏰ Queued At   : ' + d.queued_at + '\n' +
-            '✅ Status      : ' + d.status + '\n' +
-            '📊 Result      : ' + d.result + '\n' +
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-            '💡 Production Celery commands:\n' +
-            '  celery -A schedulers.pipeline_scheduler worker\n' +
-            '  celery -A schedulers.pipeline_scheduler beat\n' +
-            '  (Needs Redis server as message broker)',
+            '🔄 Celery Task Complete!\\n\\n' +
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n' +
+            '📋 Task ID    : ' + d.task_id   + '\\n' +
+            '📌 Task Name  : run_demo_task\\n' +
+            '⏰ Queued At  : ' + d.queued_at + '\\n' +
+            '✅ Status     : ' + d.status    + '\\n' +
+            '📊 Result     : ' + d.result    + '\\n' +
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n' +
+            '💡 Production Celery setup:\\n' +
+            '   celery -A schedulers worker --loglevel=info\\n' +
+            '   celery -A schedulers beat   --loglevel=info\\n' +
+            '   (Requires Redis as message broker)',
             '#ff9900'
         );
     } catch(e) {
-        show('❌ Error: ' + e.message, '#ff4444');
+        show('❌ ' + e.message, '#ff4444');
     }
-
-    setBtns(false);
+    lock(false);
     document.getElementById('b2').textContent = '🔄 Queue Celery Task';
 }
 
-// ── SYSTEM STATUS ─────────────────────────────────────────────
 async function getStatus() {
-    setBtns(true);
+    lock(true);
     document.getElementById('b3').textContent = '⏳ Loading...';
     show('⏳ Fetching system status...', '#00aaff');
-
     try {
-        var res = await fetch('/status');
-        var d = await res.json();
-        var lines = '📊 SYSTEM STATUS\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+        var d = await safeFetch('/status', 30000);
+        var txt = '📊 SYSTEM STATUS\\n\\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n';
         for (var k in d) {
-            lines += (k + '               ').slice(0,20) + ': ' + d[k] + '\n';
+            txt += (k+'                ').slice(0,20) + ': ' + d[k] + '\\n';
         }
-        lines += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-        show(lines, '#00aaff');
+        txt += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+        show(txt, '#00aaff');
     } catch(e) {
-        show('❌ Error: ' + e.message, '#ff4444');
+        show('❌ ' + e.message, '#ff4444');
     }
-
-    setBtns(false);
+    lock(false);
     document.getElementById('b3').textContent = '📊 System Status';
 }
 
-// ── TASK HISTORY ──────────────────────────────────────────────
 async function getHistory() {
-    setBtns(true);
+    lock(true);
     document.getElementById('b4').textContent = '⏳ Loading...';
-
     try {
-        var res = await fetch('/celery/history');
-        var d = await res.json();
+        var d = await safeFetch('/celery/history', 15000);
         var hbox = document.getElementById('hbox');
         var hrows = document.getElementById('hrows');
         hbox.style.display = 'block';
-
         if (!d.tasks || d.tasks.length === 0) {
             hrows.innerHTML =
                 '<div style="color:#888;padding:10px">' +
-                'No tasks yet.<br>' +
-                'Click "Run Demo Pipeline" or<br>' +
-                '"Queue Celery Task" first.' +
+                'No tasks yet.<br>Run the pipeline first!' +
                 '</div>';
         } else {
             hrows.innerHTML = d.tasks.map(function(t) {
-                var name = t.task.split('.').pop();
-                var time = t.timestamp ? t.timestamp.substring(11,19) : '';
+                var n = t.task.split('.').pop();
+                var ts = (t.timestamp||'').substring(11,19);
                 return '<div class="hrow">' +
-                    '<span style="color:#ff9900">' + name + '</span>' +
-                    '<span style="color:#888">' + time + '</span>' +
+                    '<span style="color:#ff9900">' + n + '</span>' +
+                    '<span style="color:#888">'    + ts + '</span>' +
                     '<span style="color:#00ff88">' + t.status + '</span>' +
                     '</div>';
             }).join('');
         }
     } catch(e) {
-        show('❌ Error: ' + e.message, '#ff4444');
+        show('❌ ' + e.message, '#ff4444');
     }
-
-    setBtns(false);
+    lock(false);
     document.getElementById('b4').textContent = '📋 Task History';
 }
 </script>
@@ -362,48 +420,50 @@ async function getHistory() {
 </html>
 """
 
-# ── HELPER ────────────────────────────────────────────────────
 def add_log(task, status, result=None):
     TASK_LOG.append({
         "task":      task,
         "status":    status,
-        "result":    str(result)[:100],
+        "result":    str(result)[:80],
         "timestamp": datetime.now().isoformat()
     })
     if len(TASK_LOG) > 20:
         TASK_LOG.pop(0)
 
 
-# ── ROUTES ────────────────────────────────────────────────────
 @app.route('/')
 def home():
     return render_template_string(HTML)
 
 
 @app.route('/run')
-def run_pipeline():
-    start = time.time()
+def run():
     try:
-        if not PIPELINE_AVAILABLE:
-            return jsonify({
-                "status":  "error",
-                "message": f"Pipeline import failed: {IMPORT_ERROR}"
-            })
-
-        pipeline = ETLPipeline("render_run")
-        result   = pipeline.run(source="demo", target_table="employees")
-        duration = f"{round(time.time()-start, 2)}s"
-        loaded   = result.get("loaded", 0)
-        failed   = result.get("failed", 0)
+        if PIPELINE_OK:
+            # Use the full pipeline
+            pipeline = ETLPipeline("render_run")
+            result   = pipeline.run(
+                source="demo", target_table="employees"
+            )
+            loaded   = result.get("loaded", 0)
+            failed   = result.get("failed", 0)
+            duration = result.get("duration", "N/A")
+        else:
+            # Use built-in fallback ETL
+            result   = run_builtin_etl("render_fallback")
+            loaded   = result["loaded"]
+            failed   = result["failed"]
+            duration = result["duration"]
 
         add_log("run_pipeline", "SUCCESS", result)
         return jsonify({
             "status":      "success",
-            "extracted":   loaded,
-            "transformed": loaded,
+            "extracted":   result.get("extracted", loaded),
+            "transformed": result.get("transformed", loaded),
             "loaded":      loaded,
             "failed":      failed,
-            "duration":    duration
+            "duration":    duration,
+            "db_total":    result.get("db_total", "N/A")
         })
     except Exception as e:
         add_log("run_pipeline", "FAILED", str(e))
@@ -415,23 +475,16 @@ def celery_run():
     task_id   = str(uuid.uuid4())[:8].upper()
     task_name = "schedulers.pipeline_scheduler.run_demo_task"
     queued_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    start     = time.time()
-
     try:
-        if not PIPELINE_AVAILABLE:
-            add_log(task_name, "FAILED ❌", IMPORT_ERROR)
-            return jsonify({
-                "task_id":   task_id,
-                "task_name": task_name,
-                "queued_at": queued_at,
-                "status":    "FAILED ❌",
-                "result":    f"Import error: {IMPORT_ERROR}"
-            })
-
-        pipeline = ETLPipeline(f"celery_{task_id}")
-        result   = pipeline.run(source="demo", target_table="celery_employees")
-        duration = round(time.time()-start, 2)
-        loaded   = result.get("loaded", 0)
+        if PIPELINE_OK:
+            pipeline = ETLPipeline(f"celery_{task_id}")
+            result   = pipeline.run(
+                source="demo", target_table="celery_employees"
+            )
+            loaded   = result.get("loaded", 0)
+        else:
+            result = run_builtin_etl(f"celery_{task_id}")
+            loaded = result["loaded"]
 
         add_log(task_name, "SUCCESS ✅", result)
         return jsonify({
@@ -439,7 +492,7 @@ def celery_run():
             "task_name": task_name,
             "queued_at": queued_at,
             "status":    "SUCCESS ✅",
-            "result":    f"{loaded} rows loaded in {duration}s"
+            "result":    f"{loaded} rows loaded in {result.get('duration','N/A')}"
         })
     except Exception as e:
         add_log(task_name, "FAILED ❌", str(e))
@@ -457,56 +510,58 @@ def celery_history():
     return jsonify({"tasks": list(reversed(TASK_LOG))})
 
 
-@app.route('/debug')
-def debug():
-    """
-    Special route to see exactly what's wrong.
-    Visit: https://etl-pipeline-txrp.onrender.com/debug
-    """
-    import os
-    files = []
-    for root, dirs, fs in os.walk(BASE_DIR):
-        # skip hidden folders
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-        for f in fs:
-            files.append(os.path.join(root, f).replace(BASE_DIR, ''))
-
-    return jsonify({
-        "pipeline_available": PIPELINE_AVAILABLE,
-        "import_error":       IMPORT_ERROR,
-        "base_dir":           BASE_DIR,
-        "python_path":        sys.path[:5],
-        "files_found":        files[:30],
-        "env_vars":           {
-            "PORT":        os.environ.get("PORT", "5000"),
-            "PYTHONPATH":  os.environ.get("PYTHONPATH", "not set"),
-        }
-    })
-
-
 @app.route('/status')
 def status():
     try:
-        conn   = sqlite3.connect("etl_pipeline.db")
-        tables = conn.execute(
+        db_path = os.path.join(BASE_DIR, "etl_pipeline.db")
+        conn    = sqlite3.connect(db_path)
+        tables  = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()
+        total   = 0
+        for t in tables:
+            try:
+                n = conn.execute(
+                    f"SELECT COUNT(*) FROM {t[0]}"
+                ).fetchone()[0]
+                total += n
+            except Exception:
+                pass
         conn.close()
-        db_status = f"Connected — {len(tables)} tables"
-    except Exception:
-        db_status = "SQLite ready"
+        db_info = f"Connected — {len(tables)} tables — {total} rows total"
+    except Exception as ex:
+        db_info = f"SQLite ready ({ex})"
 
     return jsonify({
-        "status":           "Online ✅",
-        "project":          "Advanced ETL Pipeline",
-        "author":           "Yashraj Jagdale",
-        "version":          "2.0.0",
-        "python":           "3.11",
-        "database":         db_status,
-        "pipeline_ready":   str(PIPELINE_AVAILABLE),
-        "celery_mode":      "Task simulation (Redis for production)",
-        "tasks_completed":  len(TASK_LOG),
-        "live_url":         "https://etl-pipeline-txrp.onrender.com"
+        "status":          "Online ✅",
+        "project":         "Advanced ETL Pipeline",
+        "author":          "Yashraj Jagdale",
+        "version":         "2.0.0",
+        "python":          "3.11",
+        "pipeline_mode":   "Full" if PIPELINE_OK else "Built-in fallback",
+        "database":        db_info,
+        "celery_mode":     "Simulated (Redis for production)",
+        "tasks_completed": len(TASK_LOG),
+        "github":          "github.com/yashraj022381/ETL_Pipeline"
+    })
+
+
+@app.route('/debug')
+def debug():
+    files = []
+    for root, dirs, fs in os.walk(BASE_DIR):
+        dirs[:] = [d for d in dirs if d not in
+                   ['.git','__pycache__','.pytest_cache']]
+        for f in fs:
+            files.append(
+                os.path.join(root,f).replace(BASE_DIR,'')
+            )
+    return jsonify({
+        "pipeline_available": PIPELINE_OK,
+        "base_dir":           BASE_DIR,
+        "sys_path_0":         sys.path[0],
+        "files":              sorted(files)[:40],
+        "python_path_env":    os.environ.get("PYTHONPATH","not set"),
     })
 
 
