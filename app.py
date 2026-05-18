@@ -6,7 +6,7 @@ import sqlite3
 import random
 from datetime import datetime
 from flask import Flask, jsonify, render_template_string
-import pandas as pd
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
