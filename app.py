@@ -120,17 +120,54 @@ hr{border-color:#1a1a1a;margin:22px 0}
 function show(h,c){var r=document.getElementById('res');r.style.display='block';r.style.color=c||'#00ff88';r.innerHTML=h}
 function lock(v){['b1','b2','b3','b4'].forEach(function(i){document.getElementById(i).disabled=v})}
 async function go(url,bid,orig){
-  lock(true);document.getElementById(bid).textContent='⏳ Loading...';
-  show('⏳ Please wait (free tier may take 30-50s)...','#ffaa00');
+  lock(true);
+  document.getElementById(bid).textContent='⏳ Running...';
+  show('⏳ Running ETL Pipeline...\n\nStage 1: EXTRACT  → collecting data...\nStage 2: TRANSFORM → cleaning data...\nStage 3: VALIDATE  → checking quality...\nStage 4: LOAD      → saving to database...\n\nPlease wait...','#ffaa00');
   try{
-    var r=await fetch(url);var d=await r.json();
-    if(d.status==='success'||d.status==='Online ✅'){
-      var t='';
-      for(var k in d) t+=(k+'                ').slice(0,18)+': '+d[k]+'\\n';
-      show('✅ Success!\\n\\n━━━━━━━━━━━━━━━━━━━━\\n'+t+'━━━━━━━━━━━━━━━━━━━━','#00ff88');
-    }else{show('❌ '+JSON.stringify(d),'#ff4444')}
-  }catch(e){show('❌ '+e.message,'#ff4444')}
-  lock(false);document.getElementById(bid).textContent=orig;
+    var r=await fetch(url);
+    var d=await r.json();
+    if(d.status==='success'){
+      show(
+        '✅ Pipeline Complete!\n\n' +
+        '━━━━━━ PIPELINE RESULTS ━━━━━━\n\n' +
+        '📥 EXTRACT\n' +
+        '   Rows Extracted    : ' + d.extracted + '\n' +
+        '   Duration          : ' + d.extract_time + '\n\n' +
+        '🔧 TRANSFORM\n' +
+        '   Rows Cleaned      : ' + d.transformed + '\n' +
+        '   Duplicates Removed: ' + d.dupes_removed + '\n' +
+        '   Nulls Fixed       : ' + d.nulls_fixed + '\n' +
+        '   Columns Added     : ' + d.columns_added + '\n' +
+        '   Duration          : ' + d.transform_time + '\n\n' +
+        '✅ VALIDATE\n' +
+        '   Rules Checked     : 5\n' +
+        '   Errors Found      : 0\n' +
+        '   Duration          : ' + d.validate_time + '\n\n' +
+        '💾 LOAD\n' +
+        '   Rows Saved        : ' + d.loaded + '\n' +
+        '   Rows Failed       : ' + d.failed + '\n' +
+        '   DB Total Rows     : ' + d.db_total_rows + '\n' +
+        '   Duration          : ' + d.load_time + '\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        '⏱  TOTAL DURATION    : ' + d.total_duration + '\n' +
+        '🏢 DEPT BREAKDOWN    : ' + d.dept_breakdown + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        '✅ Saved to SQLite → emp table',
+        '#00ff88'
+      );
+    } else if(d.status==='Online ✅'){
+      var t='📊 SYSTEM STATUS\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+      for(var k in d) t+=(k+'                ').slice(0,18)+': '+d[k]+'\n';
+      t+='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+      show(t,'#00aaff');
+    } else {
+      show('❌ Error:\n\n'+d.message,'#ff4444');
+    }
+  }catch(e){
+    show('❌ '+e.message+'\n\nFree tier may be waking up.\nWait 30s and try again.','#ff4444');
+  }
+  lock(false);
+  document.getElementById(bid).textContent=orig;
 }
 async function cel(){
   lock(true);document.getElementById('b2').textContent='⏳ Queuing...';
@@ -170,11 +207,122 @@ async function hist(){
 @app.route("/run")
 def run():
     try:
-        r = do_etl("render_run")
-        LOGS.append({"task":"run_pipeline","status":"SUCCESS","result":str(r)[:60],"timestamp":datetime.now().isoformat()})
-        return jsonify(r)
+        import time
+        overall_start = time.time()
+
+        # ── STAGE 1: EXTRACT ──────────────────────────────
+        t1 = time.time()
+        fake = Faker()
+        Faker.seed(42)
+        raw_rows = [
+            {
+                "id":     fake.unique.random_int(1, 99999),
+                "name":   fake.name(),
+                "email":  fake.email(),
+                "dept":   random.choice(
+                    ["Engineering","Sales","HR","Finance","Marketing"]
+                ),
+                "salary": round(random.uniform(30000, 120000), 2),
+                "age":    random.randint(18, 65),
+                "country":fake.country_code(),
+                "phone":  fake.phone_number() if random.random()>0.1 else None,
+            }
+            for _ in range(300)
+        ]
+        extract_time = round(time.time() - t1, 3)
+        extracted = len(raw_rows)
+
+        # ── STAGE 2: TRANSFORM ────────────────────────────
+        t2 = time.time()
+        df = pd.DataFrame(raw_rows)
+
+        # Clean: remove duplicates
+        before_dedup = len(df)
+        df.drop_duplicates(subset=["id"], inplace=True)
+        dupes_removed = before_dedup - len(df)
+
+        # Clean: fill nulls
+        nulls_before = int(df.isnull().sum().sum())
+        df["salary"].fillna(df["salary"].median(), inplace=True)
+        df["phone"].fillna("N/A", inplace=True)
+        nulls_after = int(df.isnull().sum().sum())
+
+        # Clean: standardise text
+        df["name"]  = df["name"].str.lower().str.strip()
+        df["dept"]  = df["dept"].str.lower().str.strip()
+        df["email"] = df["email"].str.lower().str.strip()
+
+        # Add metadata columns
+        df["pipeline"]   = "render_etl"
+        df["loaded_at"]  = datetime.now().isoformat()
+        df["run_id"]     = str(uuid.uuid4())[:8].upper()
+
+        transform_time = round(time.time() - t2, 3)
+        transformed = len(df)
+
+        # ── STAGE 3: VALIDATE ─────────────────────────────
+        t3 = time.time()
+        assert len(df) > 0,               "No rows after transform"
+        assert "id" in df.columns,        "Missing id column"
+        assert df["salary"].notnull().all(),"Null salaries found"
+        assert (df["age"] >= 0).all(),    "Invalid ages found"
+        assert (df["age"] <= 120).all(),  "Ages too high"
+        validate_time = round(time.time() - t3, 3)
+
+        # ── STAGE 4: LOAD ─────────────────────────────────
+        t4 = time.time()
+        conn  = sqlite3.connect("etl.db")
+        df.to_sql("emp", conn, if_exists="append", index=False)
+        total = conn.execute(
+            "SELECT COUNT(*) FROM emp"
+        ).fetchone()[0]
+
+        # dept breakdown
+        dept_counts = {}
+        try:
+            rows = conn.execute(
+                "SELECT dept, COUNT(*) FROM emp GROUP BY dept"
+            ).fetchall()
+            dept_counts = {r[0]: r[1] for r in rows}
+        except Exception:
+            pass
+        conn.close()
+        load_time = round(time.time() - t4, 3)
+
+        total_time = round(time.time() - overall_start, 3)
+
+        result = {
+            "status":          "success",
+            "extracted":       extracted,
+            "transformed":     transformed,
+            "loaded":          transformed,
+            "failed":          0,
+            "dupes_removed":   dupes_removed,
+            "nulls_fixed":     nulls_before - nulls_after,
+            "columns_added":   3,
+            "extract_time":    f"{extract_time}s",
+            "transform_time":  f"{transform_time}s",
+            "validate_time":   f"{validate_time}s",
+            "load_time":       f"{load_time}s",
+            "total_duration":  f"{total_time}s",
+            "db_total_rows":   total,
+            "dept_breakdown":  str(dept_counts),
+        }
+        LOGS.append({
+            "task":      "run_pipeline",
+            "status":    "SUCCESS",
+            "result":    str(result)[:80],
+            "timestamp": datetime.now().isoformat()
+        })
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"status":"error","message":str(e)})
+        LOGS.append({
+            "task":      "run_pipeline",
+            "status":    "FAILED",
+            "result":    str(e)[:60],
+            "timestamp": datetime.now().isoformat()
+        })
+        return jsonify({"status": "error", "message": str(e)})
 
 @app.route("/celery/run")
 def celery_run():
