@@ -105,104 +105,217 @@ hr{border-color:#1a1a1a;margin:22px 0}
     Free tier: in-process simulation with Task IDs.
   </div>
   <div class="btns">
-    <button class="btn" id="b1" onclick="go('/run','b1','▶ Run Demo Pipeline')">▶ Run Demo Pipeline</button>
-    <button class="btn bc" id="b2" onclick="cel()">🔄 Queue Celery Task</button>
-    <button class="btn" id="b3" onclick="go('/status','b3','📊 System Status')">📊 System Status</button>
-    <button class="btn" id="b4" onclick="hist()">📋 Task History</button>
+    <button class="btn" id="b1" onclick="go('/run','b1','▶ Run Demo Pipeline')">
+        ▶ Run Demo Pipeline
+    </button>
+    
+    <button class="btn bc" id="b2" onclick="cel()">
+        🔄 Queue Celery Task
+    </button>
+    
+    <button class="btn" id="b3" onclick="go('/status','b3','📊 System Status')">
+        📊 System Status
+    </button>
+    
+    <button class="btn" id="b4" onclick="hist()">
+        📋 Task History
+    </button>
+    
   </div>
   <div class="res" id="res"></div>
   <div class="hbox" id="hb">
-    <h3 style="margin-bottom:12px;color:#ff9900">📋 Celery Task History</h3>
+    <h3 style="margin-bottom:12px;color:#ff9900">
+       📋 Celery Task History
+    </h3>
     <div id="hr"></div>
   </div>
 </div>
 <script>
-function show(h,c){var r=document.getElementById('res');r.style.display='block';r.style.color=c||'#00ff88';r.innerHTML=h}
-function lock(v){['b1','b2','b3','b4'].forEach(function(i){document.getElementById(i).disabled=v})}
-async function go(url,bid,orig){
-  lock(true);
-  document.getElementById(bid).textContent='⏳ Running...';
-  show('⏳ Running ETL Pipeline...\n\nStage 1: EXTRACT  → collecting data...\nStage 2: TRANSFORM → cleaning data...\nStage 3: VALIDATE  → checking quality...\nStage 4: LOAD      → saving to database...\n\nPlease wait...','#ffaa00');
-  try{
-    var r=await fetch(url);
-    var d=await r.json();
-    if(d.status==='success'){
-      show(
-        '✅ Pipeline Complete!\n\n' +
-        '━━━━━━ PIPELINE RESULTS ━━━━━━\n\n' +
-        '📥 EXTRACT\n' +
-        '   Rows Extracted    : ' + d.extracted + '\n' +
-        '   Duration          : ' + d.extract_time + '\n\n' +
-        '🔧 TRANSFORM\n' +
-        '   Rows Cleaned      : ' + d.transformed + '\n' +
-        '   Duplicates Removed: ' + d.dupes_removed + '\n' +
-        '   Nulls Fixed       : ' + d.nulls_fixed + '\n' +
-        '   Columns Added     : ' + d.columns_added + '\n' +
-        '   Duration          : ' + d.transform_time + '\n\n' +
-        '✅ VALIDATE\n' +
-        '   Rules Checked     : 5\n' +
-        '   Errors Found      : 0\n' +
-        '   Duration          : ' + d.validate_time + '\n\n' +
-        '💾 LOAD\n' +
-        '   Rows Saved        : ' + d.loaded + '\n' +
-        '   Rows Failed       : ' + d.failed + '\n' +
-        '   DB Total Rows     : ' + d.db_total_rows + '\n' +
-        '   Duration          : ' + d.load_time + '\n\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        '⏱  TOTAL DURATION    : ' + d.total_duration + '\n' +
-        '🏢 DEPT BREAKDOWN    : ' + d.dept_breakdown + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-        '✅ Saved to SQLite → emp table',
-        '#00ff88'
-      );
-    } else if(d.status==='Online ✅'){
-      var t='📊 SYSTEM STATUS\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-      for(var k in d) t+=(k+'                ').slice(0,18)+': '+d[k]+'\n';
-      t+='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-      show(t,'#00aaff');
-    } else {
-      show('❌ Error:\n\n'+d.message,'#ff4444');
+// Show result
+function show(h,c){
+    var r=document.getElementById('res');
+    r.style.display='block';
+    r.style.color=c||'#00ff88';
+    r.innerHTML=h;
+    // Scroll to result so user can see it
+    r.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// Lock/unlock all buttons
+function lock(v){
+    ['b1','b2','b3','b4'].forEach(function(i){
+        var el=document.getElementById(i);
+        if(el) el.disabled=v;
+    });
+}
+
+// Run Demo Pipeline
+async function runPipeline(){
+    lock(true);
+    var btn=document.getElementById('b1');
+    btn.textContent='⏳ Running...';
+    show(
+        '⏳ Running ETL Pipeline...\n\n'+
+        '   Stage 1: EXTRACT   → collecting 300 rows...\n'+
+        '   Stage 2: TRANSFORM → cleaning data...\n'+
+        '   Stage 3: VALIDATE  → checking quality...\n'+
+        '   Stage 4: LOAD      → saving to SQLite...\n\n'+
+        '⚠️  Free tier takes 30-60 seconds on first run.\n'+
+        '   Please do not click again — working...',
+        '#ffaa00'
+    );
+    try{
+        // Long timeout for free tier wakeup
+        var controller=new AbortController();
+        var timer=setTimeout(function(){controller.abort();},120000);
+        var response=await fetch('/run',{signal:controller.signal});
+        clearTimeout(timer);
+        var d=await response.json();
+        if(d.status==='success'){
+            document.getElementById('ec').textContent=d.failed||'0';
+            show(
+                '✅ Pipeline Complete!\n\n'+
+                '━━━━━━ PIPELINE RESULTS ━━━━━━\n\n'+
+                '📥 EXTRACT\n'+
+                '   Rows Extracted     : '+(d.extracted||'N/A')+'\n'+
+                '   Stage Duration     : '+(d.extract_time||'N/A')+'\n\n'+
+                '🔧 TRANSFORM\n'+
+                '   Rows Cleaned       : '+(d.transformed||'N/A')+'\n'+
+                '   Duplicates Removed : '+(d.dupes_removed||'0')+'\n'+
+                '   Nulls Fixed        : '+(d.nulls_fixed||'0')+'\n'+
+                '   Columns Added      : '+(d.columns_added||'3')+'\n'+
+                '   Stage Duration     : '+(d.transform_time||'N/A')+'\n\n'+
+                '✅ VALIDATE\n'+
+                '   Rules Checked      : 5\n'+
+                '   Errors Found       : 0\n'+
+                '   Stage Duration     : '+(d.validate_time||'N/A')+'\n\n'+
+                '💾 LOAD\n'+
+                '   Rows Saved         : '+(d.loaded||'N/A')+'\n'+
+                '   Rows Failed        : '+(d.failed||'0')+'\n'+
+                '   DB Total Rows      : '+(d.db_total_rows||d.total||'N/A')+'\n'+
+                '   Stage Duration     : '+(d.load_time||'N/A')+'\n\n'+
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+
+                '⏱  Total Duration     : '+(d.total_duration||d.duration||'N/A')+'\n'+
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+
+                '✅ Data saved to SQLite → emp table',
+                '#00ff88'
+            );
+        }else{
+            show('❌ Server Error:\n\n'+
+                 (d.message||JSON.stringify(d)),
+                 '#ff4444');
+        }
+    }catch(e){
+        if(e.name==='AbortError'){
+            show(
+                '⏱ Request timed out (120s)\n\n'+
+                'The free Render server went to sleep.\n'+
+                'This is normal — try clicking again!\n'+
+                'Second attempt is always faster.',
+                '#ff4444'
+            );
+        }else{
+            show('❌ Network Error:\n\n'+e.message+
+                 '\n\nCheck your internet connection\nor try again.',
+                 '#ff4444');
+        }
     }
-  }catch(e){
-    show('❌ '+e.message+'\n\nFree tier may be waking up.\nWait 30s and try again.','#ff4444');
-  }
-  lock(false);
-  document.getElementById(bid).textContent=orig;
+    lock(false);
+    btn.textContent='▶ Run Demo Pipeline';
 }
-async function cel(){
-  lock(true);document.getElementById('b2').textContent='⏳ Queuing...';
-  show('🔄 Sending to Celery queue...','#ff9900');
-  try{
-    var r=await fetch('/celery/run');var d=await r.json();
-    show('🔄 Celery Task Done!\\n\\n━━━━━━━━━━━━━━━━━━━━\\n'+
-      'Task ID  : '+d.task_id+'\\n'+
-      'Status   : '+d.status+'\\n'+
-      'Result   : '+d.result+'\\n'+
-      'Queued At: '+d.queued_at+'\\n'+
-      '━━━━━━━━━━━━━━━━━━━━\\n\\n'+
-      'Production: celery -A schedulers worker\\n'+
-      '            celery -A schedulers beat','#ff9900');
-  }catch(e){show('❌ '+e.message,'#ff4444')}
-  lock(false);document.getElementById('b2').textContent='🔄 Queue Celery Task';
+
+// Queue Celery Task
+async function runCelery(){
+    lock(true);
+    var btn=document.getElementById('b2');
+    btn.textContent='⏳ Queuing...';
+    show('🔄 Sending task to Celery queue...\nGenerating Task ID...','#ff9900');
+    try{
+        var r=await fetch('/celery/run');
+        var d=await r.json();
+        show(
+            '🔄 Celery Task Complete!\n\n'+
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'+
+            '📋 Task ID    : '+(d.task_id||'N/A')+'\n'+
+            '📌 Task Name  : run_demo_task\n'+
+            '⏰ Queued At  : '+(d.queued_at||'N/A')+'\n'+
+            '✅ Status     : '+(d.status||'N/A')+'\n'+
+            '📊 Result     : '+(d.result||'N/A')+'\n'+
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n'+
+            '💡 Production Celery commands:\n'+
+            '   celery -A schedulers worker --loglevel=info\n'+
+            '   celery -A schedulers beat   --loglevel=info\n'+
+            '   (Requires Redis as message broker)',
+            '#ff9900'
+        );
+    }catch(e){
+        show('❌ Error: '+e.message,'#ff4444');
+    }
+    lock(false);
+    btn.textContent='🔄 Queue Celery Task';
 }
-async function hist(){
-  lock(true);document.getElementById('b4').textContent='⏳ Loading...';
-  try{
-    var r=await fetch('/celery/history');var d=await r.json();
-    document.getElementById('hb').style.display='block';
-    document.getElementById('hr').innerHTML=
-      !d.tasks||d.tasks.length===0
-      ?'<div style="color:#888;padding:10px">No tasks yet. Run pipeline first!</div>'
-      :d.tasks.map(function(t){
-        return '<div class="hr2">'+
-          '<span style="color:#ff9900">'+(t.task||'').split('.').pop()+'</span>'+
-          '<span style="color:#888">'+(t.timestamp||'').substring(11,19)+'</span>'+
-          '<span style="color:#00ff88">'+t.status+'</span></div>';
-      }).join('');
-  }catch(e){show('❌ '+e.message,'#ff4444')}
-  lock(false);document.getElementById('b4').textContent='📋 Task History';
+
+// System Status
+async function getStatus(){
+    lock(true);
+    var btn=document.getElementById('b3');
+    btn.textContent='⏳ Loading...';
+    show('⏳ Fetching system status...','#00aaff');
+    try{
+        var r=await fetch('/status');
+        var d=await r.json();
+        var txt='📊 SYSTEM STATUS\n\n'+
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+        for(var k in d){
+            txt+=(k+'                  ').slice(0,20)+
+                 ': '+d[k]+'\n';
+        }
+        txt+='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+        show(txt,'#00aaff');
+    }catch(e){
+        show('❌ Error: '+e.message,'#ff4444');
+    }
+    lock(false);
+    btn.textContent='📊 System Status';
 }
-</script></body></html>"""
+
+// Task History
+async function getHistory(){
+    lock(true);
+    var btn=document.getElementById('b4');
+    btn.textContent='⏳ Loading...';
+    try{
+        var r=await fetch('/celery/history');
+        var d=await r.json();
+        var hbox=document.getElementById('hb');
+        var hr=document.getElementById('hr');
+        hbox.style.display='block';
+        hbox.scrollIntoView({behavior:'smooth'});
+        if(!d.tasks||d.tasks.length===0){
+            hr.innerHTML='<div style="color:#888;padding:10px">'+
+                'No tasks yet.<br>Run the pipeline first!'+
+                '</div>';
+        }else{
+            hr.innerHTML=d.tasks.map(function(t){
+                var n=(t.task||'').split('.').pop();
+                var ts=(t.timestamp||'').substring(11,19);
+                var sc=t.status&&t.status.includes('SUCCESS')?
+                    '#00ff88':'#ff4444';
+                return '<div class="hr2">'+
+                    '<span style="color:#ff9900">'+n+'</span>'+
+                    '<span style="color:#888">'+ts+'</span>'+
+                    '<span style="color:'+sc+'">'+t.status+'</span>'+
+                    '</div>';
+            }).join('');
+        }
+    }catch(e){
+        show('❌ Error: '+e.message,'#ff4444');
+    }
+    lock(false);
+    btn.textContent='📋 Task History';
+}
+</script>
+"""
 
 @app.route("/run")
 def run():
