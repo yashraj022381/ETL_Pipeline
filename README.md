@@ -24,7 +24,7 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
 
 ## ✨ Features
 
-- **Multi-source Extraction** — CSV, API, Demo data
+- **Multi-source Data Extraction** — CSV, API, Demo data
 - **Advanced Data Transformation** — Cleaning, outlier handling, feature engineering
 - **Data Quality Validation** — Rule-based validation with strict/warning modes
 - **Database Loading** — PostgreSQL + SQLite support with upsert capability
@@ -56,7 +56,7 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
 - **Batch Processing & Chunking**
 - **Scheduling & Automation**
 - **Error Handling & Retry Logic**
-- **Monitoring & Observability**
+- **System Monitoring & Observability**
 - **Idempotency & Incremental Loading**
 
 ---
@@ -101,9 +101,11 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
   └── README.md
 
 🖼 Screenshots
-<img src="https://i.imgur.com/your-dashboard-screenshot.png" alt="Dashboard">
-<img src="https://i.imgur.com/your-pipeline-run.png" alt="Pipeline Running">
-<img src="https://i.imgur.com/your-status.png" alt="System Status">
+ ![Live Home Page](screenshots/dashboard.png)
+ ![Live Home Page](screenshots/run_demo_pipeline.png)
+ ![Live Home Page](screenshots/system_status.png)
+ ![Live Home Page](screenshots/task_history.png)
+
 
 🏃 How to Run Locally
 
