@@ -14,7 +14,7 @@ Extract, transform, and load large datasets automatically.
 
 A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Python that handles data from multiple sources with cleaning, validation, monitoring, and scheduling capabilities.
 
-![ETL Pipeline Dashboard](https://i.imgur.com/your-screenshot-link-here.png)
+![ETL Pipeline Dashboard](screenshots/dashboard.png)
 
 ### 🌐 Live Demo
 
@@ -101,7 +101,7 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
   └── README.md
 
 🖼 Screenshots
- ![Live Dashboard](screenshots/dashboard.png)
+
  ![Live Run_Demo_Pipeline](screenshots/run_demo_pipeline.png)
  ![Live Queue_Task](screenshots/task_queue.png)
  ![Live System Status](screenshots/system_status.png)
