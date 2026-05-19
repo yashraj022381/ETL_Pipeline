@@ -1,6 +1,15 @@
 # ⚡ Automated Data Pipeline & ETL System
 Extract, transform, and load large datasets automatically.
 
+![Python](https://img.shields.io/badge/Python-3.11-%233776AB.svg?style=for-the-badge&logo=python&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-1.5+-150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+
+![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen?style=for-the-badge)
+
 **Advanced Automated Data Pipeline & ETL System**
 
 A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Python that handles data from multiple sources with cleaning, validation, monitoring, and scheduling capabilities.
