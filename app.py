@@ -66,12 +66,12 @@ def do_etl(name="run"):
             "dupes_removed": dupes,
             "total_duration": f"{round(time.time()-t0,3)}s",
             "db_total": total,
-            "dept_breakdown": str(depts)
+            "dept_breakdown": depts
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# ====================== FULL BEAUTIFUL HTML ======================
+# ====================== FINAL BEAUTIFUL HTML ======================
 PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -80,25 +80,35 @@ PAGE = """<!DOCTYPE html>
 <title>ETL Pipeline — Yashraj Jagdale</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d0d;color:#00ff88;font-family:'Courier New',monospace;min-height:100vh}
-header{border-bottom:1px solid #00ff88;padding:18px 35px;display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:1.6em;font-weight:bold}
-.live{display:flex;align-items:center;gap:8px;color:#00ff88}
-.dot{width:10px;height:10px;background:#00ff88;border-radius:50%;animation:blink 2s infinite}
+body{background:#0a0a0a;color:#00ff88;font-family:'Courier New',monospace;min-height:100vh}
+header{border-bottom:1px solid #00ff88;padding:20px 40px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:1.7em;font-weight:bold}
+.live{display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;background:#00ff88;border-radius:50%;animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-main{padding:30px 35px;max-width:1100px;margin:0 auto}
-h1{font-size:2.8em;margin-bottom:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:25px 0}
-.card{border:1px solid #00ff88;padding:20px;text-align:center;border-radius:8px}
-.num{font-size:2.8em;font-weight:bold}
-.lbl{color:#888;font-size:0.85em;margin-top:8px}
-.flow{display:flex;justify-content:center;align-items:center;gap:15px;flex-wrap:wrap;margin:30px 0}
-.stage{border:1px solid #00ff88;padding:12px 22px;border-radius:6px}
-.cbox{border:1px solid #ff9900;padding:18px;margin:25px 0;border-radius:6px;background:#1a1a1a}
-.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:30px 0}
-.btn{background:transparent;border:2px solid #00ff88;color:#00ff88;padding:16px;font-size:1.05em;cursor:pointer;border-radius:6px;transition:0.3s}
+
+main{padding:30px 40px;max-width:1200px;margin:0 auto}
+h1{font-size:2.8em;margin-bottom:5px}
+.sub{color:#888;margin-bottom:20px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin:25px 0}
+.card{border:1px solid #00ff88;padding:22px;text-align:center;border-radius:8px;background:#111}
+.num{font-size:3em;font-weight:bold}
+.lbl{color:#888;font-size:0.85em;margin-top:8px;letter-spacing:1px}
+
+.flow{display:flex;justify-content:center;align-items:center;gap:15px;flex-wrap:wrap;margin:35px 0}
+.stage{border:1px solid #00ff88;padding:14px 24px;border-radius:8px;font-size:1.1em}
+
+.cbox{border:1px solid #ff9900;padding:18px;margin:25px 0;border-radius:8px;background:#1a1a1a}
+
+.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:30px 0}
+.btn{background:transparent;border:2px solid #00ff88;color:#00ff88;padding:18px;font-size:1.05em;cursor:pointer;border-radius:8px;transition:0.3s}
 .btn:hover{background:#00ff88;color:#000}
-#res{margin-top:25px;padding:25px;background:#111;border:1px solid #00ff88;border-radius:8px;white-space:pre-wrap;display:none;line-height:1.7}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+
+#res{margin-top:25px;padding:25px;background:#111;border:1px solid #00ff88;border-radius:10px;white-space:pre-wrap;display:none;line-height:1.8;font-size:1.02em;min-height:120px}
+.success{color:#00ff88}
+.error{color:#ff6666}
 </style>
 </head>
 <body>
@@ -110,7 +120,7 @@ h1{font-size:2.8em;margin-bottom:8px}
 
 <main>
     <h1>⚡ ETL Pipeline</h1>
-    <p>Advanced Data Engineering Project by Yashraj Jagdale</p>
+    <p class="sub">Advanced Data Engineering Project by Yashraj Jagdale</p>
 
     <div class="grid">
         <div class="card"><div class="num">3</div><div class="lbl">ETL STAGES</div></div>
@@ -121,16 +131,16 @@ h1{font-size:2.8em;margin-bottom:8px}
 
     <div class="flow">
         <div class="stage">📥 EXTRACT</div>
-        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div style="color:#00ff88;font-size:2em">→</div>
         <div class="stage">🔧 TRANSFORM</div>
-        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div style="color:#00ff88;font-size:2em">→</div>
         <div class="stage">✅ VALIDATE</div>
-        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div style="color:#00ff88;font-size:2em">→</div>
         <div class="stage">💾 LOAD</div>
     </div>
 
     <div class="cbox">
-        🔄 <strong>Celery Task Queue</strong> — Free tier simulation mode
+        🔄 <strong>Celery Task Queue</strong> — Free tier simulation mode active
     </div>
 
     <div class="btns">
@@ -144,58 +154,91 @@ h1{font-size:2.8em;margin-bottom:8px}
 </main>
 
 <script>
-async function runPipeline() {
+function showResult(html, success=true) {
     const res = document.getElementById('res');
-    const btn = document.getElementById('b1');
-    btn.disabled = true; btn.textContent = "⏳ Running...";
     res.style.display = 'block';
-    res.innerHTML = "🚀 Starting Pipeline...";
+    res.innerHTML = html;
+    res.style.borderColor = success ? '#00ff88' : '#ff6666';
+}
+
+async function runPipeline() {
+    const btn = document.getElementById('b1');
+    btn.disabled = true;
+    btn.textContent = "⏳ Running Pipeline...";
+    
+    const res = document.getElementById('res');
+    res.style.display = 'block';
+    res.innerHTML = "<b>🚀 Starting ETL Pipeline...</b>";
 
     try {
         const data = await fetch('/run').then(r => r.json());
-        let html = `<b style="color:#00ff88">✅ Pipeline Success!</b><br><br>`;
-        html += `Loaded: ${data.loaded} rows<br>`;
-        html += `Duration: ${data.total_duration}<br>`;
-        html += `Database Total: ${data.db_total} rows<br>`;
-        html += `Departments: ${data.dept_breakdown}`;
-        res.innerHTML = html;
+        
+        let html = `<b style="color:#00ff88">✅ Pipeline Executed Successfully!</b><br><br>`;
+        html += `📊 <b>Loaded:</b> ${data.loaded} rows<br>`;
+        html += `⏱ <b>Duration:</b> ${data.total_duration}<br>`;
+        html += `🗄 <b>Database Total:</b> ${data.db_total} rows<br><br>`;
+        
+        if (data.dept_breakdown) {
+            html += `<b>Departments:</b><br>`;
+            Object.entries(data.dept_breakdown).forEach(([dept, count]) => {
+                html += `   • ${dept}: ${count} rows<br>`;
+            });
+        }
+        showResult(html);
     } catch(e) {
-        res.innerHTML = `❌ Error: ${e.message}`;
+        showResult(`❌ Error: ${e.message}`, false);
     }
-    btn.disabled = false; btn.textContent = "▶ Run Demo Pipeline";
+    
+    btn.disabled = false;
+    btn.textContent = "▶ Run Demo Pipeline";
 }
 
 async function runCelery() {
-    const res = document.getElementById('res');
-    res.style.display = 'block';
-    res.innerHTML = "🔄 Queuing Celery Task...";
+    const btn = document.getElementById('b2');
+    btn.disabled = true;
+    btn.textContent = "⏳ Queuing...";
+    
     try {
         const data = await fetch('/celery/run').then(r => r.json());
-        res.innerHTML = `<b>✅ Task Queued!</b><br>Task ID: ${data.task_id}<br>Status: ${data.status}`;
+        const html = `<b>✅ Celery Task Queued!</b><br><br>
+                      Task ID: <b>${data.task_id}</b><br>
+                      Status: <b>${data.status}</b><br>
+                      <small>Running in simulation mode (free tier)</small>`;
+        showResult(html);
     } catch(e) {
-        res.innerHTML = "❌ Failed to queue task";
+        showResult("❌ Failed to queue task", false);
     }
+    btn.disabled = false;
+    btn.textContent = "🔄 Queue Celery Task";
 }
 
 async function getStatus() {
-    const res = document.getElementById('res');
-    res.style.display = 'block';
     try {
         const data = await fetch('/status').then(r => r.json());
-        res.innerHTML = `<b>📊 System Status</b><br><br>` + Object.entries(data).map(([k,v]) => `<b>${k}:</b> ${v}`).join('<br>');
+        let html = `<b>📊 System Status</b><br><br>`;
+        Object.entries(data).forEach(([k,v]) => {
+            html += `<b>${k}:</b> ${v}<br>`;
+        });
+        showResult(html);
     } catch(e) {
-        res.innerHTML = "❌ Failed to get status";
+        showResult("❌ Failed to fetch status", false);
     }
 }
 
 async function getHistory() {
-    const res = document.getElementById('res');
-    res.style.display = 'block';
     try {
         const data = await fetch('/celery/history').then(r => r.json());
-        res.innerHTML = `<b>📋 Task History</b><br><br>` + (data.tasks && data.tasks.length ? data.tasks.map(t => `• ${t.timestamp} | ${t.result}`).join('<br>') : "No tasks yet.");
+        let html = `<b>📋 Task History</b><br><br>`;
+        if (data.tasks && data.tasks.length > 0) {
+            data.tasks.forEach(t => {
+                html += `• ${t.timestamp} | ${t.result}<br>`;
+            });
+        } else {
+            html += "No tasks yet. Run the pipeline first!";
+        }
+        showResult(html);
     } catch(e) {
-        res.innerHTML = "❌ Failed to load history";
+        showResult("❌ Failed to load history", false);
     }
 }
 </script>
@@ -216,8 +259,13 @@ def run():
 def celery_run():
     tid = str(uuid.uuid4())[:8].upper()
     result = do_etl(f"celery_{tid}")
-    LOGS.append({"task":"run_demo_task","status":"SUCCESS","result":f"{result.get('loaded',0)} rows","timestamp":datetime.now().strftime("%H:%M:%S")})
-    return jsonify({"task_id":tid,"status":"SUCCESS","result":f"{result.get('loaded',0)} rows"})
+    LOGS.append({
+        "task": "run_demo_task",
+        "status": "SUCCESS",
+        "result": f"{result.get('loaded', 0)} rows",
+        "timestamp": datetime.now().strftime("%H:%M:%S")
+    })
+    return jsonify({"task_id": tid, "status": "SUCCESS", "result": f"{result.get('loaded', 0)} rows"})
 
 @app.route("/status")
 def status():
@@ -228,7 +276,7 @@ def status():
         db = f"Connected — {n} rows"
     except:
         db = "Ready (no data yet)"
-    return jsonify({"status":"Online ✅","database":db,"tasks_done":len(LOGS)})
+    return jsonify({"status": "Online ✅", "database": db, "tasks_done": len(LOGS)})
 
 @app.route("/celery/history")
 def celery_history():
