@@ -4,7 +4,7 @@ import time
 import sqlite3
 import random
 from datetime import datetime
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify
 from faker import Faker
 import pandas as pd
 
@@ -68,46 +68,156 @@ def do_etl(name="run"):
             "db_total": total,
             "dept_breakdown": str(depts)
         }
-
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# ====================== HTML (Keep your beautiful design) ======================
-# ... Paste your full beautiful HTML here (the one with green cyberpunk style) ...
+# ====================== FULL BEAUTIFUL HTML ======================
+PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ETL Pipeline — Yashraj Jagdale</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d0d;color:#00ff88;font-family:'Courier New',monospace;min-height:100vh}
+header{border-bottom:1px solid #00ff88;padding:18px 35px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:1.6em;font-weight:bold}
+.live{display:flex;align-items:center;gap:8px;color:#00ff88}
+.dot{width:10px;height:10px;background:#00ff88;border-radius:50%;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+main{padding:30px 35px;max-width:1100px;margin:0 auto}
+h1{font-size:2.8em;margin-bottom:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:25px 0}
+.card{border:1px solid #00ff88;padding:20px;text-align:center;border-radius:8px}
+.num{font-size:2.8em;font-weight:bold}
+.lbl{color:#888;font-size:0.85em;margin-top:8px}
+.flow{display:flex;justify-content:center;align-items:center;gap:15px;flex-wrap:wrap;margin:30px 0}
+.stage{border:1px solid #00ff88;padding:12px 22px;border-radius:6px}
+.cbox{border:1px solid #ff9900;padding:18px;margin:25px 0;border-radius:6px;background:#1a1a1a}
+.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:30px 0}
+.btn{background:transparent;border:2px solid #00ff88;color:#00ff88;padding:16px;font-size:1.05em;cursor:pointer;border-radius:6px;transition:0.3s}
+.btn:hover{background:#00ff88;color:#000}
+#res{margin-top:25px;padding:25px;background:#111;border:1px solid #00ff88;border-radius:8px;white-space:pre-wrap;display:none;line-height:1.7}
+</style>
+</head>
+<body>
 
-# For now, use this minimal working version first, then we can restore full design
-PAGE = """[Your full beautiful HTML from previous messages - keep it]"""
+<header>
+    <div class="logo">⚡ ETL_Pipeline</div>
+    <div class="live"><div class="dot"></div> Live on Render</div>
+</header>
 
+<main>
+    <h1>⚡ ETL Pipeline</h1>
+    <p>Advanced Data Engineering Project by Yashraj Jagdale</p>
+
+    <div class="grid">
+        <div class="card"><div class="num">3</div><div class="lbl">ETL STAGES</div></div>
+        <div class="card"><div class="num">3K+</div><div class="lbl">ROWS / RUN</div></div>
+        <div class="card"><div class="num">4</div><div class="lbl">VALIDATORS</div></div>
+        <div class="card"><div class="num" id="ec">0</div><div class="lbl">ERRORS</div></div>
+    </div>
+
+    <div class="flow">
+        <div class="stage">📥 EXTRACT</div>
+        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div class="stage">🔧 TRANSFORM</div>
+        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div class="stage">✅ VALIDATE</div>
+        <div style="color:#00ff88;font-size:1.8em">→</div>
+        <div class="stage">💾 LOAD</div>
+    </div>
+
+    <div class="cbox">
+        🔄 <strong>Celery Task Queue</strong> — Free tier simulation mode
+    </div>
+
+    <div class="btns">
+        <button class="btn" id="b1" onclick="runPipeline()">▶ Run Demo Pipeline</button>
+        <button class="btn" id="b2" onclick="runCelery()">🔄 Queue Celery Task</button>
+        <button class="btn" id="b3" onclick="getStatus()">📊 System Status</button>
+        <button class="btn" id="b4" onclick="getHistory()">📋 Task History</button>
+    </div>
+
+    <div id="res"></div>
+</main>
+
+<script>
+async function runPipeline() {
+    const res = document.getElementById('res');
+    const btn = document.getElementById('b1');
+    btn.disabled = true; btn.textContent = "⏳ Running...";
+    res.style.display = 'block';
+    res.innerHTML = "🚀 Starting Pipeline...";
+
+    try {
+        const data = await fetch('/run').then(r => r.json());
+        let html = `<b style="color:#00ff88">✅ Pipeline Success!</b><br><br>`;
+        html += `Loaded: ${data.loaded} rows<br>`;
+        html += `Duration: ${data.total_duration}<br>`;
+        html += `Database Total: ${data.db_total} rows<br>`;
+        html += `Departments: ${data.dept_breakdown}`;
+        res.innerHTML = html;
+    } catch(e) {
+        res.innerHTML = `❌ Error: ${e.message}`;
+    }
+    btn.disabled = false; btn.textContent = "▶ Run Demo Pipeline";
+}
+
+async function runCelery() {
+    const res = document.getElementById('res');
+    res.style.display = 'block';
+    res.innerHTML = "🔄 Queuing Celery Task...";
+    try {
+        const data = await fetch('/celery/run').then(r => r.json());
+        res.innerHTML = `<b>✅ Task Queued!</b><br>Task ID: ${data.task_id}<br>Status: ${data.status}`;
+    } catch(e) {
+        res.innerHTML = "❌ Failed to queue task";
+    }
+}
+
+async function getStatus() {
+    const res = document.getElementById('res');
+    res.style.display = 'block';
+    try {
+        const data = await fetch('/status').then(r => r.json());
+        res.innerHTML = `<b>📊 System Status</b><br><br>` + Object.entries(data).map(([k,v]) => `<b>${k}:</b> ${v}`).join('<br>');
+    } catch(e) {
+        res.innerHTML = "❌ Failed to get status";
+    }
+}
+
+async function getHistory() {
+    const res = document.getElementById('res');
+    res.style.display = 'block';
+    try {
+        const data = await fetch('/celery/history').then(r => r.json());
+        res.innerHTML = `<b>📋 Task History</b><br><br>` + (data.tasks && data.tasks.length ? data.tasks.map(t => `• ${t.timestamp} | ${t.result}`).join('<br>') : "No tasks yet.");
+    } catch(e) {
+        res.innerHTML = "❌ Failed to load history";
+    }
+}
+</script>
+</body>
+</html>"""
+
+# ====================== ROUTES ======================
 @app.route("/")
 def home():
     return PAGE
 
 @app.route("/run")
 def run():
-    try:
-        result = do_etl("web_run")
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    result = do_etl("web_run")
+    return jsonify(result)
 
 @app.route("/celery/run")
 def celery_run():
-    try:
-        tid = str(uuid.uuid4())[:8].upper()
-        result = do_etl(f"celery_{tid}")
-        LOGS.append({
-            "task": "run_demo_task",
-            "status": "SUCCESS",
-            "result": f"{result.get('loaded', 0)} rows",
-            "timestamp": datetime.now().strftime("%H:%M:%S")
-        })
-        return jsonify({
-            "task_id": tid,
-            "status": "SUCCESS",
-            "result": f"{result.get('loaded', 0)} rows in simulation mode"
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    tid = str(uuid.uuid4())[:8].upper()
+    result = do_etl(f"celery_{tid}")
+    LOGS.append({"task":"run_demo_task","status":"SUCCESS","result":f"{result.get('loaded',0)} rows","timestamp":datetime.now().strftime("%H:%M:%S")})
+    return jsonify({"task_id":tid,"status":"SUCCESS","result":f"{result.get('loaded',0)} rows"})
 
 @app.route("/status")
 def status():
@@ -115,14 +225,10 @@ def status():
         conn = sqlite3.connect("etl.db")
         n = conn.execute("SELECT COUNT(*) FROM emp").fetchone()[0]
         conn.close()
-        db_status = f"Connected — {n} rows"
+        db = f"Connected — {n} rows"
     except:
-        db_status = "Ready (no data yet)"
-    return jsonify({
-        "status": "Online ✅",
-        "database": db_status,
-        "tasks_done": len(LOGS)
-    })
+        db = "Ready (no data yet)"
+    return jsonify({"status":"Online ✅","database":db,"tasks_done":len(LOGS)})
 
 @app.route("/celery/history")
 def celery_history():
