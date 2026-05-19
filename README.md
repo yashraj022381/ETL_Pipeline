@@ -101,10 +101,11 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
   └── README.md
 
 🖼 Screenshots
- ![Live Home Page](screenshots/dashboard.png)
- ![Live Home Page](screenshots/run_demo_pipeline.png)
- ![Live Home Page](screenshots/system_status.png)
- ![Live Home Page](screenshots/task_history.png)
+ ![Live Dashboard](screenshots/dashboard.png)
+ ![Live Run_Demo_Pipeline](screenshots/run_demo_pipeline.png)
+ ![Live Queue_Task](screenshots/queue_task.png)
+ ![Live System Status](screenshots/system_status.png)
+ ![Live Task History](screenshots/task_history.png)
 
 
 🏃 How to Run Locally
