@@ -103,7 +103,7 @@ A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Py
 🖼 Screenshots
  ![Live Dashboard](screenshots/dashboard.png)
  ![Live Run_Demo_Pipeline](screenshots/run_demo_pipeline.png)
- ![Live Queue_Task](screenshots/queue_task.png)
+ ![Live Queue_Task](screenshots/task_queue.png)
  ![Live System Status](screenshots/system_status.png)
  ![Live Task History](screenshots/task_history.png)
 
