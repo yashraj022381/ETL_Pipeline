@@ -10,8 +10,6 @@ Extract, transform, and load large datasets automatically.
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen?style=for-the-badge)
 
-**Advanced Automated Data Pipeline & ETL System**
-
 A robust, production-ready Extract, Transform, Load (ETL) pipeline built with Python that handles data from multiple sources with cleaning, validation, monitoring, and scheduling capabilities.
 
 🖼 Screenshots
